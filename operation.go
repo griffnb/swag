@@ -51,8 +51,10 @@ var mimeTypeAliases = map[string]string{
 	"event-stream":          "text/event-stream",
 }
 
-var mimeTypePattern = regexp.MustCompile("^[^/]+/[^/]+$")
-var securityPairSepPattern = regexp.MustCompile(`\|\||&&`) // || for compatibility with old version, && for clarity
+var (
+	mimeTypePattern        = regexp.MustCompile("^[^/]+/[^/]+$")
+	securityPairSepPattern = regexp.MustCompile(`\|\||&&`) // || for compatibility with old version, && for clarity
+)
 
 // NewOperation creates a new Operation with default properties.
 // map[int]Response.
@@ -352,10 +354,30 @@ func (operation *Operation) ParseParamComment(commentLine string, astFile *ast.F
 					if cfv, ok := prop.Extensions.GetString(collectionFormatTag); ok {
 						collectionFormat = cfv
 					}
-					param = createParameter(paramType, prop.Description, name, prop.Type[0], itemSchema.Type[0], format, findInSlice(schema.Required, item.Name), itemSchema.Enum, collectionFormat)
+					param = createParameter(
+						paramType,
+						prop.Description,
+						name,
+						prop.Type[0],
+						itemSchema.Type[0],
+						format,
+						findInSlice(schema.Required, item.Name),
+						itemSchema.Enum,
+						collectionFormat,
+					)
 
 				case IsSimplePrimitiveType(prop.Type[0]):
-					param = createParameter(paramType, prop.Description, name, PRIMITIVE, prop.Type[0], format, findInSlice(schema.Required, item.Name), nil, operation.parser.collectionFormatInQuery)
+					param = createParameter(
+						paramType,
+						prop.Description,
+						name,
+						PRIMITIVE,
+						prop.Type[0],
+						format,
+						findInSlice(schema.Required, item.Name),
+						nil,
+						operation.parser.collectionFormatInQuery,
+					)
 				default:
 					operation.parser.debug.Printf("skip field [%s] in %s is not supported type for %s", name, refType, paramType)
 					continue
@@ -399,7 +421,6 @@ func (operation *Operation) ParseParamComment(commentLine string, astFile *ast.F
 	}
 
 	err := operation.parseParamAttribute(commentLine, objectType, refType, paramType, &param)
-
 	if err != nil {
 		return err
 	}
@@ -417,7 +438,8 @@ const (
 	uriTag              = "uri"
 	headerTag           = "header"
 	bindingTag          = "binding"
-	defaultTag          = "swag_default"
+	defaultTag          = "swag_default" // Field default value tag
+	defaultResponseCode = "default"      // OpenAPI/Swagger default response code keyword
 	enumsTag            = "enums"
 	exampleTag          = "example"
 	schemaExampleTag    = "schemaExample"
@@ -972,7 +994,8 @@ func parseCombinedObjectSchemaWithPublic(parser *Parser, refType string, astFile
 		return schema, nil
 	}
 
-	if schema.Ref.GetURL() == nil && len(schema.Type) > 0 && schema.Type[0] == OBJECT && len(schema.Properties) == 0 && schema.AdditionalProperties == nil {
+	if schema.Ref.GetURL() == nil && len(schema.Type) > 0 && schema.Type[0] == OBJECT && len(schema.Properties) == 0 &&
+		schema.AdditionalProperties == nil {
 		schema.Properties = props
 		return schema, nil
 	}
@@ -1036,7 +1059,7 @@ func (operation *Operation) ParseResponseComment(commentLine string, astFile *as
 	}
 
 	for _, codeStr := range strings.Split(matches[1], ",") {
-		if strings.EqualFold(codeStr, defaultTag) {
+		if strings.EqualFold(codeStr, defaultResponseCode) {
 			operation.DefaultResponse().WithSchema(schema).WithDescription(description)
 
 			continue
@@ -1113,7 +1136,7 @@ func (operation *Operation) ParseResponseHeaderComment(commentLine string, _ *as
 	}
 
 	for _, codeStr := range strings.Split(matches[1], ",") {
-		if strings.EqualFold(codeStr, defaultTag) {
+		if strings.EqualFold(codeStr, defaultResponseCode) {
 			if operation.Responses.Default != nil {
 				operation.Responses.Default.Headers[headerKey] = header
 			}
@@ -1151,7 +1174,7 @@ func (operation *Operation) ParseEmptyResponseComment(commentLine string) error 
 	description := strings.Trim(matches[2], "\"")
 
 	for _, codeStr := range strings.Split(matches[1], ",") {
-		if strings.EqualFold(codeStr, defaultTag) {
+		if strings.EqualFold(codeStr, defaultResponseCode) {
 			operation.DefaultResponse().WithDescription(description)
 
 			continue
@@ -1171,7 +1194,7 @@ func (operation *Operation) ParseEmptyResponseComment(commentLine string) error 
 // ParseEmptyResponseOnly parse only comment out status code ,eg: @Success 200.
 func (operation *Operation) ParseEmptyResponseOnly(commentLine string) error {
 	for _, codeStr := range strings.Split(commentLine, ",") {
-		if strings.EqualFold(codeStr, defaultTag) {
+		if strings.EqualFold(codeStr, defaultResponseCode) {
 			_ = operation.DefaultResponse()
 
 			continue
@@ -1212,7 +1235,13 @@ func (operation *Operation) AddResponse(code int, response *spec.Response) {
 }
 
 // createParameter returns swagger spec.Parameter for given  paramType, description, paramName, schemaType, required.
-func createParameter(paramType, description, paramName, objectType, schemaType string, format string, required bool, enums []interface{}, collectionFormat string) spec.Parameter {
+func createParameter(
+	paramType, description, paramName, objectType, schemaType string,
+	format string,
+	required bool,
+	enums []interface{},
+	collectionFormat string,
+) spec.Parameter {
 	// //five possible parameter types. 	query, path, body, header, form
 	result := spec.Parameter{
 		ParamProps: spec.ParamProps{
