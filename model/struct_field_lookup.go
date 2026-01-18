@@ -272,7 +272,6 @@ func (c *CoreStructParser) processStructField(f *StructField, packageMap map[str
 	console.Logger.Debug("-------Set field %s with TypeString=%s and %d Fields\n", f.Name, f.TypeString, len(f.Fields))
 
 	builder.Fields = append(builder.Fields, f)
-	fmt.Println("-------- End Sub Package Struct --------")
 }
 
 func (c *CoreStructParser) ExtractFieldsRecursive(
