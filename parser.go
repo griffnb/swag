@@ -1410,7 +1410,7 @@ func (parser *Parser) getBaseModule(pkgPath string) string {
 		}
 		if idx := strings.Index(pkgPath, pattern); idx >= 0 {
 			if debug {
-				console.Printf("$Red{Getting path for applications folder: %s -> %s}", pkgPath, pkgPath[:idx])
+				console.Logger.Debug("$Red{Getting path for applications folder: %s -> %s}", pkgPath, pkgPath[:idx])
 			}
 			return pkgPath[:idx]
 		}
