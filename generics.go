@@ -8,6 +8,7 @@ import (
 	"unicode"
 
 	"github.com/go-openapi/spec"
+	"github.com/swaggo/swag/console"
 )
 
 type genericTypeSpec struct {
@@ -87,7 +88,7 @@ func (pkgDefs *PackagesDefinitions) getTypeFromGenericParam(genericParam string,
 			TypeSpec: &ast.TypeSpec{
 				Name: ast.NewIdent(string(IgnoreNameOverridePrefix) + "map_" + parts[0] + "_" + typeSpecDef.TypeName()),
 				Type: &ast.MapType{
-					Key:   ast.NewIdent(parts[0]), //assume key is string or integer
+					Key:   ast.NewIdent(parts[0]), // assume key is string or integer
 					Value: expr,
 				},
 			},
@@ -120,7 +121,7 @@ func (pkgDefs *PackagesDefinitions) parametrizeGenericType(file *ast.File, origi
 		return nil
 	}
 
-	//generic[x,y any,z any] considered, TODO what if the type is not `any`, but a concrete one, such as `int32|int64` or an certain interface{}
+	// generic[x,y any,z any] considered, TODO what if the type is not `any`, but a concrete one, such as `int32|int64` or an certain interface{}
 	var formals []formalParamType
 	for _, field := range original.TypeSpec.TypeParams.List {
 		for _, ident := range field.Names {
@@ -203,7 +204,7 @@ func (pkgDefs *PackagesDefinitions) parametrizeGenericType(file *ast.File, origi
 
 // splitGenericsTypeName splits a generic struct name in his parts
 func splitGenericsTypeName(fullGenericForm string) (string, []string) {
-	//remove all spaces character
+	// remove all spaces character
 	fullGenericForm = strings.Map(func(r rune) rune {
 		if unicode.IsSpace(r) {
 			return -1
@@ -251,7 +252,7 @@ func (pkgDefs *PackagesDefinitions) getParametrizedType(genTypeSpec *genericType
 		}
 	}
 
-	//a primitive type name or a type name in current package
+	// a primitive type name or a type name in current package
 	return &ast.Ident{Name: genTypeSpec.Name}
 }
 
@@ -436,9 +437,9 @@ func (parser *Parser) parseGenericTypeExpr(file *ast.File, typeExpr ast.Expr) (*
 			}
 		}
 
-		parser.debug.Printf("Type definition of type '%T' is not supported yet. Using 'object' instead. (%s)\n", typeExpr, err)
+		console.Logger.Debug("Type definition of type '%T' is not supported yet. Using 'object' instead. (%s)\n", typeExpr, err)
 	default:
-		parser.debug.Printf("Type definition of type '%T' is not supported yet. Using 'object' instead.\n", typeExpr)
+		console.Logger.Debug("Type definition of type '%T' is not supported yet. Using 'object' instead.\n", typeExpr)
 	}
 
 	return PrimitiveSchema(OBJECT), nil

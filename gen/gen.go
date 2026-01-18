@@ -17,6 +17,7 @@ import (
 
 	"github.com/go-openapi/spec"
 	"github.com/swaggo/swag"
+	"github.com/swaggo/swag/console"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 	"sigs.k8s.io/yaml"
@@ -193,7 +194,7 @@ func (g *Gen) Build(config *Config) error {
 				return fmt.Errorf("could not open overrides file: %w", err)
 			}
 		} else {
-			g.debug.Printf("Using overrides from %s", config.OverridesFile)
+			console.Logger.Debug("Using overrides from %s", config.OverridesFile)
 
 			overrides, err = parseOverrides(overridesFile)
 			if err != nil {
@@ -202,7 +203,7 @@ func (g *Gen) Build(config *Config) error {
 		}
 	}
 
-	g.debug.Printf("Generate swagger docs....")
+	console.Logger.Debug("Generate swagger docs....")
 
 	p := swag.New(
 		swag.SetParseDependency(config.ParseDependency),
@@ -256,7 +257,7 @@ func (g *Gen) Build(config *Config) error {
 }
 
 func (g *Gen) writeDocSwagger(config *Config, swagger *spec.Swagger) error {
-	var filename = "docs.go"
+	filename := "docs.go"
 
 	if config.State != "" {
 		filename = config.State + "_" + filename
@@ -293,13 +294,13 @@ func (g *Gen) writeDocSwagger(config *Config, swagger *spec.Swagger) error {
 		return err
 	}
 
-	g.debug.Printf("create docs.go at %+v", docFileName)
+	console.Logger.Debug("create docs.go at %+v", docFileName)
 
 	return nil
 }
 
 func (g *Gen) writeJSONSwagger(config *Config, swagger *spec.Swagger) error {
-	var filename = "swagger.json"
+	filename := "swagger.json"
 
 	if config.State != "" {
 		filename = config.State + "_" + filename
@@ -321,13 +322,13 @@ func (g *Gen) writeJSONSwagger(config *Config, swagger *spec.Swagger) error {
 		return err
 	}
 
-	g.debug.Printf("create swagger.json at %+v", jsonFileName)
+	console.Logger.Debug("create swagger.json at %+v", jsonFileName)
 
 	return nil
 }
 
 func (g *Gen) writeYAMLSwagger(config *Config, swagger *spec.Swagger) error {
-	var filename = "swagger.yaml"
+	filename := "swagger.yaml"
 
 	if config.State != "" {
 		filename = config.State + "_" + filename
@@ -354,7 +355,7 @@ func (g *Gen) writeYAMLSwagger(config *Config, swagger *spec.Swagger) error {
 		return err
 	}
 
-	g.debug.Printf("create swagger.yaml at %+v", yamlFileName)
+	console.Logger.Debug("create swagger.yaml at %+v", yamlFileName)
 
 	return nil
 }

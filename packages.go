@@ -14,6 +14,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/swaggo/swag/console"
 	"golang.org/x/tools/go/loader"
 	"golang.org/x/tools/go/packages"
 )
@@ -116,7 +117,8 @@ func (pkgDefs *PackagesDefinitions) RangeFiles(handle func(info *AstFileInfo) er
 	for _, info := range pkgDefs.files {
 		// ignore package path prefix with 'vendor' or $GOROOT,
 		// because the router info of api will not be included these files.
-		if strings.HasPrefix(info.PackagePath, "vendor") || (runtime.GOROOT() != "" && strings.HasPrefix(info.Path, runtime.GOROOT()+string(filepath.Separator))) {
+		if strings.HasPrefix(info.PackagePath, "vendor") ||
+			(runtime.GOROOT() != "" && strings.HasPrefix(info.Path, runtime.GOROOT()+string(filepath.Separator))) {
 			continue
 		}
 		sortedFiles = append(sortedFiles, info)
@@ -202,7 +204,10 @@ func (pkgDefs *PackagesDefinitions) parseTypesFromFile(astFile *ast.File, packag
 					typeSpecDef.SetSchemaName()
 
 					if pkgDefs.packages[typeSpecDef.PkgPath] == nil {
-						pkgDefs.packages[typeSpecDef.PkgPath] = NewPackageDefinitions(astFile.Name.Name, typeSpecDef.PkgPath).AddTypeSpec(typeSpecDef.Name(), typeSpecDef)
+						pkgDefs.packages[typeSpecDef.PkgPath] = NewPackageDefinitions(
+							astFile.Name.Name,
+							typeSpecDef.PkgPath,
+						).AddTypeSpec(typeSpecDef.Name(), typeSpecDef)
 					} else if _, ok = pkgDefs.packages[typeSpecDef.PkgPath].TypeDefinitions[typeSpecDef.Name()]; !ok {
 						pkgDefs.packages[typeSpecDef.PkgPath].AddTypeSpec(typeSpecDef.Name(), typeSpecDef)
 					}
@@ -289,13 +294,15 @@ func (pkgDefs *PackagesDefinitions) parseFunctionScopedTypesFromFile(astFile *as
 								typeSpecDef.SetSchemaName()
 
 								if pkgDefs.packages[typeSpecDef.PkgPath] == nil {
-									pkgDefs.packages[typeSpecDef.PkgPath] = NewPackageDefinitions(astFile.Name.Name, typeSpecDef.PkgPath).AddTypeSpec(fullName, typeSpecDef)
+									pkgDefs.packages[typeSpecDef.PkgPath] = NewPackageDefinitions(
+										astFile.Name.Name,
+										typeSpecDef.PkgPath,
+									).AddTypeSpec(fullName, typeSpecDef)
 								} else if _, ok = pkgDefs.packages[typeSpecDef.PkgPath].TypeDefinitions[fullName]; !ok {
 									pkgDefs.packages[typeSpecDef.PkgPath].AddTypeSpec(fullName, typeSpecDef)
 								}
 							}
 						}
-
 					}
 				}
 			}
@@ -406,7 +413,11 @@ func tryParseTypeFromPackage(pkg *packages.Package, constObj *types.Const) ast.E
 }
 
 // EvaluateConstValue evaluate a const variable.
-func (pkgDefs *PackagesDefinitions) EvaluateConstValue(pkg *PackageDefinitions, cv *ConstVariable, recursiveStack map[string]struct{}) (interface{}, ast.Expr) {
+func (pkgDefs *PackagesDefinitions) EvaluateConstValue(
+	pkg *PackageDefinitions,
+	cv *ConstVariable,
+	recursiveStack map[string]struct{},
+) (interface{}, ast.Expr) {
 	if pkg.Package != nil {
 		obj := pkg.Package.Types.Scope().Lookup(cv.Name.Name)
 		if obj != nil {
@@ -424,7 +435,14 @@ func (pkgDefs *PackagesDefinitions) EvaluateConstValue(pkg *PackageDefinitions, 
 			if err := recover(); err != nil {
 				if fi, ok := pkgDefs.files[cv.File]; ok {
 					pos := fi.FileSet.Position(cv.Name.NamePos)
-					pkgDefs.debug.Printf("warning: failed to evaluate const %s at %s:%d:%d, %v", cv.Name.Name, fi.Path, pos.Line, pos.Column, err)
+					console.Logger.Debug(
+						"warning: failed to evaluate const %s at %s:%d:%d, %v",
+						cv.Name.Name,
+						fi.Path,
+						pos.Line,
+						pos.Column,
+						err,
+					)
 				}
 			}
 		}()
@@ -450,7 +468,11 @@ func (pkgDefs *PackagesDefinitions) EvaluateConstValue(pkg *PackageDefinitions, 
 }
 
 // EvaluateConstValueByName evaluate a const variable by name.
-func (pkgDefs *PackagesDefinitions) EvaluateConstValueByName(file *ast.File, pkgName, constVariableName string, recursiveStack map[string]struct{}) (interface{}, ast.Expr) {
+func (pkgDefs *PackagesDefinitions) EvaluateConstValueByName(
+	file *ast.File,
+	pkgName, constVariableName string,
+	recursiveStack map[string]struct{},
+) (interface{}, ast.Expr) {
 	matchedPkgPaths, externalPkgPaths := pkgDefs.findPackagePathFromImports(pkgName, file)
 	for _, pkgPath := range matchedPkgPaths {
 		if pkg, ok := pkgDefs.packages[pkgPath]; ok {
@@ -701,7 +723,7 @@ func (pkgDefs *PackagesDefinitions) FindTypeSpec(typeName string, file *ast.File
 	// in case that comment //@name renamed the type with a name without a dot
 	for k, v := range pkgDefs.uniqueDefinitions {
 		if v == nil {
-			pkgDefs.debug.Printf("%s TypeSpecDef is nil", k)
+			console.Logger.Debug("%s TypeSpecDef is nil", k)
 			continue
 		}
 		if v.SchemaName == typeName {
@@ -751,7 +773,7 @@ func (pkgDefs *PackagesDefinitions) CheckTypeSpec(typeSpecDef *TypeSpecDef) {
 		obj = findGenericTypeFromPackage(pkg, typeSpecDef.TypeSpec.Name.Pos())
 	}
 	if obj == nil {
-		pkgDefs.debug.Printf("warning: %s TypeSpecDef is nil", typeSpecDef.TypeSpec.Name.Name)
+		console.Logger.Debug("warning: %s TypeSpecDef is nil", typeSpecDef.TypeSpec.Name.Name)
 		return
 	}
 	pkgDefs.checkJSONMarshal(pkg, obj)
@@ -761,6 +783,6 @@ func (pkgDefs *PackagesDefinitions) checkJSONMarshal(pkg *packages.Package, obj 
 	methodSet := types.NewMethodSet(obj.Type())
 	method := methodSet.Lookup(pkg.Types, "MarshalJSON")
 	if method != nil {
-		pkgDefs.debug.Printf("warning: %s.%s has MarshalJSON method, may need special handling", pkg.PkgPath, obj.Name())
+		console.Logger.Debug("warning: %s.%s has MarshalJSON method, may need special handling", pkg.PkgPath, obj.Name())
 	}
 }

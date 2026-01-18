@@ -417,11 +417,11 @@ func (parser *Parser) ParseAPIMultiSearchDir(searchDirs []string, mainAPIFile st
 		}
 	} else {
 		for _, searchDir := range searchDirs {
-			parser.debug.Printf("Generate general API Info, search dir:%s", searchDir)
+			console.Logger.Debug("Generate general API Info, search dir:%s", searchDir)
 
 			packageDir, err := getPkgName(searchDir)
 			if err != nil {
-				parser.debug.Printf("warning: failed to get package name in dir: %s, error: %s", searchDir, err.Error())
+				console.Logger.Debug("warning: failed to get package name in dir: %s, error: %s", searchDir, err.Error())
 			}
 
 			err = parser.getAllGoFileInfo(packageDir, searchDir)
@@ -1202,7 +1202,7 @@ func processRouterOperation(parser *Parser, operation *Operation) error {
 				return err
 			}
 
-			parser.debug.Printf("warning: %s\n", err)
+			console.Logger.Debug("warning: %s\n", err)
 		}
 
 		if len(operation.RouterProperties) > 1 {
@@ -1249,7 +1249,7 @@ func convertFromSpecificToPrimitive(typeName string) (string, error) {
 
 func (parser *Parser) getTypeSchema(typeName string, file *ast.File, ref bool) (*spec.Schema, error) {
 	if override, ok := parser.Overrides[typeName]; ok {
-		parser.debug.Printf("Override detected for %s: using %s instead", typeName, override)
+		console.Logger.Debug("Override detected for %s: using %s instead", typeName, override)
 		return parseObjectSchema(parser, override, file)
 	}
 
@@ -1280,7 +1280,7 @@ func (parser *Parser) getTypeSchema(typeName string, file *ast.File, ref bool) (
 			if baseTypeSpec != nil {
 				isPublicVariant = true
 				baseTypeName = potentialBaseType
-				parser.debug.Printf("Detected Public variant request '%s', looking for base type '%s'", typeName, baseTypeName)
+				console.Logger.Debug("Detected Public variant request '%s', looking for base type '%s'", typeName, baseTypeName)
 			}
 		} else {
 			// No package prefix, just type name like "AccountPublic"
@@ -1289,7 +1289,7 @@ func (parser *Parser) getTypeSchema(typeName string, file *ast.File, ref bool) (
 			if baseTypeSpec != nil {
 				isPublicVariant = true
 				baseTypeName = potentialBaseType
-				parser.debug.Printf("Detected Public variant request '%s', looking for base type '%s'", typeName, baseTypeName)
+				console.Logger.Debug("Detected Public variant request '%s', looking for base type '%s'", typeName, baseTypeName)
 			}
 		}
 	}
@@ -1301,12 +1301,12 @@ func (parser *Parser) getTypeSchema(typeName string, file *ast.File, ref bool) (
 
 	if override, ok := parser.Overrides[typeSpecDef.FullPath()]; ok {
 		if override == "" {
-			parser.debug.Printf("Override detected for %s: ignoring", typeSpecDef.FullPath())
+			console.Logger.Debug("Override detected for %s: ignoring", typeSpecDef.FullPath())
 
 			return nil, ErrSkippedField
 		}
 
-		parser.debug.Printf("Override detected for %s: using %s instead", typeSpecDef.FullPath(), override)
+		console.Logger.Debug("Override detected for %s: using %s instead", typeSpecDef.FullPath(), override)
 
 		separator := strings.LastIndex(override, ".")
 		if separator == -1 {
@@ -1340,7 +1340,7 @@ func (parser *Parser) getTypeSchema(typeName string, file *ast.File, ref bool) (
 		if !exists {
 			// Public variant doesn't exist - this is OK if the type doesn't use custom parser
 			// Fall back to base schema (Public variant would be identical anyway)
-			parser.debug.Printf("Public variant '%s' not found, using base schema '%s'", typeName, baseTypeName)
+			console.Logger.Debug("Public variant '%s' not found, using base schema '%s'", typeName, baseTypeName)
 			if ref {
 				if IsComplexSchema(schema.Schema) {
 					return parser.getRefTypeSchema(typeSpecDef, schema), nil
@@ -1453,7 +1453,7 @@ func (parser *Parser) requiresCustomParserWithVisited(typeSpecDef *TypeSpecDef, 
 		for _, imp := range typeSpecDef.File.Imports {
 			impPath := strings.Trim(imp.Path.Value, "\"")
 			if strings.Contains(impPath, "/model/fields") {
-				parser.debug.Printf("Type '%s' imports fields package, using custom parser", typeSpecDef.TypeName())
+				console.Logger.Debug("Type '%s' imports fields package, using custom parser", typeSpecDef.TypeName())
 				return true
 			}
 		}
@@ -1573,13 +1573,13 @@ func (parser *Parser) ParseDefinition(typeSpecDef *TypeSpecDef) (*Schema, error)
 	typeName := typeSpecDef.TypeName()
 	schema, found := parser.parsedSchemas[typeSpecDef]
 	if found {
-		parser.debug.Printf("Skipping '%s', already parsed.", typeName)
+		console.Logger.Debug("Skipping '%s', already parsed.", typeName)
 
 		return schema, nil
 	}
 
 	if parser.isInStructStack(typeSpecDef) {
-		parser.debug.Printf("Skipping '%s', recursion detected.", typeName)
+		console.Logger.Debug("Skipping '%s', recursion detected.", typeName)
 
 		return &Schema{
 				Name:    typeSpecDef.SchemaName,
@@ -1597,11 +1597,11 @@ func (parser *Parser) ParseDefinition(typeSpecDef *TypeSpecDef) (*Schema, error)
 
 	parser.structStack = append(parser.structStack, typeSpecDef)
 
-	parser.debug.Printf("Generating %s", typeName)
+	console.Logger.Debug("Generating %s", typeName)
 
 	// Check if this type requires custom parsing (has fields.StructField types)
 	if parser.requiresCustomParser(typeSpecDef) {
-		parser.debug.Printf("Using custom parser for '%s' (contains StructField types)", typeName)
+		console.Logger.Debug("Using custom parser for '%s' (contains StructField types)", typeName)
 
 		// Determine base module - try to extract from PkgPath
 		baseModule := parser.getBaseModule(typeSpecDef.PkgPath)
@@ -1610,7 +1610,7 @@ func (parser *Parser) ParseDefinition(typeSpecDef *TypeSpecDef) (*Schema, error)
 		pkgPath := typeSpecDef.PkgPath
 		// If PkgPath looks like a relative package name (doesn't contain /), try to find the full path
 		if !strings.Contains(pkgPath, "/") {
-			parser.debug.Printf("Package '%s' looks relative, searching imports for full path", pkgPath)
+			console.Logger.Debug("Package '%s' looks relative, searching imports for full path", pkgPath)
 
 			// Search through all files for imports that end with this package name
 			found := false
@@ -1623,7 +1623,7 @@ func (parser *Parser) ParseDefinition(typeSpecDef *TypeSpecDef) (*Schema, error)
 					// Check if this import ends with /pkgPath
 					if strings.HasSuffix(impPath, "/"+pkgPath) {
 						pkgPath = impPath
-						parser.debug.Printf("Resolved package path for '%s' to '%s' from imports", typeSpecDef.PkgPath, pkgPath)
+						console.Logger.Debug("Resolved package path for '%s' to '%s' from imports", typeSpecDef.PkgPath, pkgPath)
 						found = true
 						return nil
 					}
@@ -1631,16 +1631,16 @@ func (parser *Parser) ParseDefinition(typeSpecDef *TypeSpecDef) (*Schema, error)
 				return nil
 			})
 			if err != nil {
-				parser.debug.Printf("Error searching for package path: %s", err)
+				console.Logger.Debug("Error searching for package path: %s", err)
 			}
 		}
 
-		parser.debug.Printf("typeSpecDef.PkgPath='%s', resolved pkgPath='%s', baseModule='%s'", typeSpecDef.PkgPath, pkgPath, baseModule)
+		console.Logger.Debug("typeSpecDef.PkgPath='%s', resolved pkgPath='%s', baseModule='%s'", typeSpecDef.PkgPath, pkgPath, baseModule)
 
 		// Call BuildAllSchemas to get all schema variants
 		allSchemas, err := model.BuildAllSchemas(baseModule, pkgPath, typeSpecDef.Name())
 		if err != nil {
-			parser.debug.Printf("Error using custom parser for '%s': %s", typeName, err)
+			console.Logger.Debug("Error using custom parser for '%s': %s", typeName, err)
 			// Fall back to standard parsing if custom parser fails
 		} else {
 			// Store all generated schemas in definitions
@@ -1691,7 +1691,7 @@ func (parser *Parser) ParseDefinition(typeSpecDef *TypeSpecDef) (*Schema, error)
 				}
 
 				parser.swagger.Definitions[finalSchemaName] = *schemaSpec
-				parser.debug.Printf("Added schema '%s' to definitions", finalSchemaName)
+				console.Logger.Debug("Added schema '%s' to definitions", finalSchemaName)
 			}
 
 			// Find the base schema - it should be package-qualified
@@ -1709,7 +1709,7 @@ func (parser *Parser) ParseDefinition(typeSpecDef *TypeSpecDef) (*Schema, error)
 
 			baseSchema := allSchemas[packageName+"."+typeSpecDef.Name()]
 			if baseSchema == nil {
-				parser.debug.Printf("Warning: base schema not found for key '%s' (tried unqualified '%s'), using empty object", baseSchemaKey, typeSpecDef.Name())
+				console.Logger.Debug("Warning: base schema not found for key '%s' (tried unqualified '%s'), using empty object", baseSchemaKey, typeSpecDef.Name())
 				baseSchema = &spec.Schema{SchemaProps: spec.SchemaProps{Type: []string{OBJECT}}}
 			}
 
@@ -1729,7 +1729,7 @@ func (parser *Parser) ParseDefinition(typeSpecDef *TypeSpecDef) (*Schema, error)
 
 	definition, err := parser.parseTypeExpr(typeSpecDef.File, typeSpecDef.TypeSpec.Type, false)
 	if err != nil {
-		parser.debug.Printf("Error parsing type definition '%s': %s", typeName, err)
+		console.Logger.Debug("Error parsing type definition '%s': %s", typeName, err)
 		return nil, err
 	}
 
