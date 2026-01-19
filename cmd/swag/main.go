@@ -10,6 +10,7 @@ import (
 	"github.com/urfave/cli/v2"
 
 	"github.com/swaggo/swag"
+	"github.com/swaggo/swag/console"
 	"github.com/swaggo/swag/format"
 	"github.com/swaggo/swag/gen"
 )
@@ -45,6 +46,7 @@ const (
 	stateFlag                = "state"
 	parseFuncBodyFlag        = "parseFuncBody"
 	parseGoPackagesFlag      = "parseGoPackages"
+	debugFlag                = "debug"
 )
 
 var initFlags = []cli.Flag{
@@ -133,6 +135,7 @@ var initFlags = []cli.Flag{
 	},
 	&cli.BoolFlag{
 		Name:  requiredByDefaultFlag,
+		Value: true,
 		Usage: "Set validation required for all fields by default",
 	},
 	&cli.StringFlag{
@@ -196,6 +199,10 @@ var initFlags = []cli.Flag{
 		Name:  parseGoPackagesFlag,
 		Usage: "Parse Go sources by golang.org/x/tools/go/packages, disabled by default",
 	},
+	&cli.BoolFlag{
+		Name:  debugFlag,
+		Usage: "Enable debug mode, disabled by default",
+	},
 }
 
 func initAction(ctx *cli.Context) error {
@@ -208,6 +215,10 @@ func initAction(ctx *cli.Context) error {
 	}
 
 	leftDelim, rightDelim := "{{", "}}"
+
+	if ctx.IsSet(debugFlag) {
+		console.Logger.DebugLevel = 1
+	}
 
 	if ctx.IsSet(templateDelimsFlag) {
 		delims := strings.Split(ctx.String(templateDelimsFlag), ",")
@@ -244,7 +255,7 @@ func initAction(ctx *cli.Context) error {
 		)
 	}
 
-	var pdv = ctx.Int(parseDependencyLevelFlag)
+	pdv := ctx.Int(parseDependencyLevelFlag)
 	if pdv == 0 {
 		if ctx.Bool(parseDependencyFlag) {
 			pdv = 1
@@ -300,7 +311,6 @@ func main() {
 			Aliases: []string{"f"},
 			Usage:   "format swag comments",
 			Action: func(c *cli.Context) error {
-
 				if c.Bool(pipeFlag) {
 					return format.New().Run(os.Stdin, os.Stdout)
 				}

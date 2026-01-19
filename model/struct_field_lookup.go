@@ -31,13 +31,6 @@ type CoreStructParser struct {
 	packageLoader sync.Once                    // Load packages only once
 }
 
-// debugLog prints debug messages only when debugMode is enabled
-func debugLog(format string, args ...interface{}) {
-	if debugMode {
-		fmt.Printf(format, args...)
-	}
-}
-
 // toPascalCase converts package_name or package-name to PascalCase (PackageName)
 func toPascalCase(s string) string {
 	if s == "" {
@@ -69,7 +62,7 @@ func (c *CoreStructParser) LookupStructFields(baseModule, importPath, typeName s
 	c.cacheMutex.RLock()
 	if cached, exists := c.typeCache[cacheKey]; exists {
 		c.cacheMutex.RUnlock()
-		debugLog("Using cached type: %s\n", cacheKey)
+		console.Logger.Debug("Using cached type: %s\n", cacheKey)
 		return cached
 	}
 	c.cacheMutex.RUnlock()
@@ -94,7 +87,7 @@ func (c *CoreStructParser) LookupStructFields(baseModule, importPath, typeName s
 	var packageMap map[string]*packages.Package
 
 	if !pkgCached {
-		debugLog("Loading package: %s\n", importPath)
+		console.Logger.Debug("Loading package: %s\n", importPath)
 		cfg := &packages.Config{
 			Mode: packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo | packages.NeedName | packages.NeedImports | packages.NeedDeps,
 			Fset: token.NewFileSet(),
@@ -134,9 +127,9 @@ func (c *CoreStructParser) LookupStructFields(baseModule, importPath, typeName s
 		pkg = packageMap[importPath]
 		c.cacheMutex.Unlock()
 		globalCacheMutex.Unlock()
-		debugLog("Cached %d packages from %s\n", len(packageMap), importPath)
+		console.Logger.Debug("Cached %d packages from %s\n", len(packageMap), importPath)
 	} else {
-		debugLog("Using globally cached package: %s\n", importPath)
+		console.Logger.Debug("Using globally cached package: %s\n", importPath)
 		// Use cached packages from global cache
 		globalCacheMutex.RLock()
 		packageMap = make(map[string]*packages.Package)
@@ -150,11 +143,11 @@ func (c *CoreStructParser) LookupStructFields(baseModule, importPath, typeName s
 	c.packageMap = packageMap
 
 	if pkg == nil || pkg.PkgPath != importPath {
-		debugLog("Package not found or mismatch: %v\n", importPath)
+		console.Logger.Debug("Package not found or mismatch: %v\n", importPath)
 		return builder
 	}
 
-	debugLog("Processing package: %+v %s\n", pkg, typeName)
+	console.Logger.Debug("Processing package: %+v %s\n", pkg, typeName)
 
 	visited := make(map[string]bool)
 	c.visited = visited
@@ -162,7 +155,7 @@ func (c *CoreStructParser) LookupStructFields(baseModule, importPath, typeName s
 
 	// Process all fields
 	for _, f := range fields {
-		debugLog("Field: %s, Type: %s, Tag: %s\n", f.Name, f.Type, f.Tag)
+		console.Logger.Debug("Field: %s, Type: %s, Tag: %s\n", f.Name, f.Type, f.Tag)
 
 		// Check if it's a special StructField type that needs expansion
 		if f.Type != nil && strings.Contains(f.Type.String(), "fields.StructField") {
@@ -205,7 +198,7 @@ func (c *CoreStructParser) processStructField(f *StructField, packageMap map[str
 	originalTypeName := subTypeName
 	var subTypePackage string
 
-	debugLog("----Sub Type Name: %s (arrayPrefix: %s)\n", subTypeName, arrayPrefix)
+	console.Logger.Debug("----Sub Type Name: %s (arrayPrefix: %s)\n", subTypeName, arrayPrefix)
 
 	// Parse package and type name
 	if strings.Contains(subTypeName, "/") {
@@ -247,39 +240,38 @@ func (c *CoreStructParser) processStructField(f *StructField, packageMap map[str
 		return
 	}
 
-	debugLog("-----Final Sub type Package %s\n Final Sub Type Name: %s\n", subTypePackage, subTypeName)
+	console.Logger.Debug("-----Final Sub type Package %s\n Final Sub Type Name: %s\n", subTypePackage, subTypeName)
 
 	// Find the target package
 	targetPkg := packageMap[subTypePackage]
 	if targetPkg == nil {
-		debugLog("WARNING: Package not found in map for %s\n", subTypePackage)
+		console.Logger.Debug("WARNING: Package not found in map for %s\n", subTypePackage)
 		targetPkg = c.basePackage
 	} else {
-		debugLog("-----Found target package: %s\n", targetPkg.PkgPath)
+		console.Logger.Debug("-----Found target package: %s\n", targetPkg.PkgPath)
 	}
 
 	if targetPkg == nil {
-		debugLog("------No package available\n")
+		console.Logger.Debug("------No package available\n")
 		f.TypeString = originalTypeName
 		builder.Fields = append(builder.Fields, f)
 		return
 	}
 
 	// Extract subfields
-	debugLog("\n\n-------Sub Package Struct-----: \n%s\n", subTypeName)
+	console.Logger.Debug("\n\n-------Sub Package Struct-----: \n%s\n", subTypeName)
 	subFields := c.ExtractFieldsRecursive(targetPkg, subTypeName, packageMap, make(map[string]bool))
-	debugLog("--------Extracted %d subfields for %s\n", len(subFields), subTypeName)
+	console.Logger.Debug("--------Extracted %d subfields for %s\n", len(subFields), subTypeName)
 
 	for _, subField := range subFields {
-		debugLog("Sub Field: %s, Type: %s, Tag: %s\n", subField.Name, subField.Type, subField.Tag)
+		console.Logger.Debug("Sub Field: %s, Type: %s, Tag: %s\n", subField.Name, subField.Type, subField.Tag)
 	}
 
 	f.TypeString = originalTypeName
 	f.Fields = subFields
-	debugLog("-------Set field %s with TypeString=%s and %d Fields\n", f.Name, f.TypeString, len(f.Fields))
+	console.Logger.Debug("-------Set field %s with TypeString=%s and %d Fields\n", f.Name, f.TypeString, len(f.Fields))
 
 	builder.Fields = append(builder.Fields, f)
-	fmt.Println("-------- End Sub Package Struct --------")
 }
 
 func (c *CoreStructParser) ExtractFieldsRecursive(
@@ -313,7 +305,7 @@ func (c *CoreStructParser) ExtractFieldsRecursive(
 				if !ok {
 					continue
 				}
-				debugLog("----Matched StructType & Processing: %s (has %d fields)\n", ts.Name.Name, len(st.Fields.List))
+				console.Logger.Debug("----Matched StructType & Processing: %s (has %d fields)\n", ts.Name.Name, len(st.Fields.List))
 				for i, field := range st.Fields.List {
 					var fieldName string
 					if len(field.Names) > 0 {
@@ -346,7 +338,7 @@ func (c *CoreStructParser) ExtractFieldsRecursive(
 						}
 					}
 
-					debugLog(
+					console.Logger.Debug(
 						"----[Field %d/%d] Validating Field Name: %s, Type: %s (%T), Tag: %s\n",
 						i+1,
 						len(st.Fields.List),
@@ -360,7 +352,7 @@ func (c *CoreStructParser) ExtractFieldsRecursive(
 					if subFields, _, ok := c.checkNamed(fieldType); ok {
 
 						if len(subFields) == 0 {
-							debugLog("Skipping empty embedded field: %s\n", fieldName)
+							console.Logger.Debug("Skipping empty embedded field: %s\n", fieldName)
 							continue
 						}
 						fields = append(fields, subFields...)
@@ -376,7 +368,7 @@ func (c *CoreStructParser) ExtractFieldsRecursive(
 							Fields:     subFields,
 						})
 
-						debugLog("----Added Struct Field: %s of type %s with %d subfields\n", fieldName, typeName, len(subFields))
+						console.Logger.Debug("----Added Struct Field: %s of type %s with %d subfields\n", fieldName, typeName, len(subFields))
 						continue
 					}
 					if subFields, typeName, ok := c.checkSlice(fieldType); ok {
@@ -455,13 +447,13 @@ func (c *CoreStructParser) checkNamed(fieldType types.Type) ([]*StructField, *ty
 			return nil, nil, false
 		}
 		if _, ok := named.Underlying().(*types.Struct); ok {
-			debugLog("Found sub type Package %s Name %s\n", named.Obj().Pkg().Path(), named.Obj().Name())
+			console.Logger.Debug("Found sub type Package %s Name %s\n", named.Obj().Pkg().Path(), named.Obj().Name())
 			nextPackage, ok := c.packageMap[named.Obj().Pkg().Path()]
 			if !ok {
-				debugLog("Package not found for %s\n", named.Obj().Pkg().Path())
+				console.Logger.Debug("Package not found for %s\n", named.Obj().Pkg().Path())
 				return nil, nil, true
 			}
-			debugLog("Next Package: %s\n", nextPackage.PkgPath)
+			console.Logger.Debug("Next Package: %s\n", nextPackage.PkgPath)
 			subFields := c.ExtractFieldsRecursive(nextPackage, named.Obj().Name(), c.packageMap, c.visited)
 			return subFields, named, true
 		}
@@ -600,7 +592,8 @@ func buildSchemasRecursive(
 	// Build schema for current type
 	// Create a parser-based enum lookup that can access the packages
 	enumLookup := &ParserEnumLookup{Parser: parser, BaseModule: baseModule, PkgPath: pkgPath}
-	schema, nestedTypes, err := builder.BuildSpecSchema(baseTypeName, public, enumLookup)
+	// Force all fields to be required in response schemas
+	schema, nestedTypes, err := builder.BuildSpecSchema(baseTypeName, public, true, enumLookup)
 	if err != nil {
 		return fmt.Errorf("failed to build schema for %s: %w", schemaName, err)
 	}
@@ -671,7 +664,7 @@ func buildSchemasRecursive(
 		// Need to lookup the nested type's fields using the correct package path
 		nestedBuilder := parser.LookupStructFields(baseModule, nestedPkgPath, baseNestedType)
 		if nestedBuilder == nil {
-			console.Printf("$Yellow{Warning: Could not lookup nested type %s in package %s}\n", baseNestedType, nestedPkgPath)
+			console.Logger.Debug("$Yellow{Warning: Could not lookup nested type %s in package %s}\n", baseNestedType, nestedPkgPath)
 			continue
 		}
 

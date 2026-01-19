@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/go-openapi/spec"
+	"github.com/swaggo/swag/console"
 	"golang.org/x/tools/go/loader"
 )
 
@@ -379,7 +380,7 @@ func (operation *Operation) ParseParamComment(commentLine string, astFile *ast.F
 						operation.parser.collectionFormatInQuery,
 					)
 				default:
-					operation.parser.debug.Printf("skip field [%s] in %s is not supported type for %s", name, refType, paramType)
+					console.Logger.Debug("skip field [%s] in %s is not supported type for %s", name, refType, paramType)
 					continue
 				}
 

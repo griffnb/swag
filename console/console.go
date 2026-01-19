@@ -125,7 +125,7 @@ func join(parts []string) string {
 
 // Printf formats and prints text with template syntax support.
 // Uses Sprintf for formatting (see console.go:204).
-func Printf(format string, args ...any) {
+func printf(format string, args ...any) {
 	fmt.Print(Sprintf(format, args...))
 }
 

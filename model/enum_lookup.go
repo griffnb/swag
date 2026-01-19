@@ -50,7 +50,7 @@ func (p *ParserEnumLookup) GetEnumsForType(typeName string, file *ast.File) ([]E
 		targetPkgPath = typeName[:lastDot]
 	}
 
-	console.Printf("$Bold{$Red{Looking up enums for type: %s in package: %s (path: %s)}}\n", baseTypeName, "", targetPkgPath)
+	console.Logger.Debug("$Bold{$Red{Looking up enums for type: %s in package: %s (path: %s)}}\n", baseTypeName, "", targetPkgPath)
 
 	// Initialize local cache if needed
 	p.cacheMutex.Lock()
