@@ -510,7 +510,8 @@ func getIntTag(structTag reflect.StructTag, tagName string) (*int64, error) {
 
 func (ps *tagBaseFieldParser) IsRequired() (bool, error) {
 	if ps.field.Tag == nil {
-		return false, nil
+		// No tags at all - use RequiredByDefault
+		return ps.p.RequiredByDefault, nil
 	}
 
 	bindingTag := ps.tag.Get(bindingTag)

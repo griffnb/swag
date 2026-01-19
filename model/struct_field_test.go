@@ -88,7 +88,7 @@ func TestToSpecSchema_PrimitiveTypes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			propName, schema, required, nestedTypes, err := tt.field.ToSpecSchema(tt.public, nil)
+			propName, schema, required, nestedTypes, err := tt.field.ToSpecSchema(tt.public, false, nil)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.wantPropName, propName)
 			assert.Equal(t, tt.wantRequired, required)
@@ -113,7 +113,7 @@ func TestToSpecSchema_StructField_Simple(t *testing.T) {
 		Tag:        `json:"properties"`,
 	}
 
-	propName, schema, required, nestedTypes, err := field.ToSpecSchema(false, nil)
+	propName, schema, required, nestedTypes, err := field.ToSpecSchema(false, false, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, "properties", propName)
 	assert.True(t, required)
@@ -130,7 +130,7 @@ func TestToSpecSchema_StructField_Public(t *testing.T) {
 		Tag:        `public:"view" json:"user"`,
 	}
 
-	propName, schema, required, nestedTypes, err := field.ToSpecSchema(true, nil)
+	propName, schema, required, nestedTypes, err := field.ToSpecSchema(true, false, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, "user", propName)
 	assert.True(t, required)
@@ -148,7 +148,7 @@ func TestToSpecSchema_StructField_NotPublic(t *testing.T) {
 	}
 
 	// When public=true but field has no public tag, should return nil
-	propName, schema, required, nestedTypes, err := field.ToSpecSchema(true, nil)
+	propName, schema, required, nestedTypes, err := field.ToSpecSchema(true, false, nil)
 	assert.NoError(t, err)
 	assert.Equal(t, "", propName)
 	assert.Nil(t, schema)
@@ -277,7 +277,7 @@ func TestBuildSchemaForType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			schema, nestedTypes, err := buildSchemaForType(tt.typeStr, tt.public, "", nil)
+			schema, nestedTypes, err := buildSchemaForType(tt.typeStr, tt.public, false, "", nil)
 			assert.NoError(t, err)
 			assert.NotNil(t, schema)
 

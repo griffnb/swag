@@ -52,10 +52,12 @@ type EnumValue struct {
 // ToSpecSchema converts a StructField to OpenAPI spec.Schema
 // propName: extracted from json tag (first part before comma)
 // schema: the OpenAPI schema for this field
-// required: true if omitempty is absent from json tag
+// required: true if omitempty is absent from json tag (or forceRequired is true)
 // nestedTypes: list of struct type names encountered for recursive definition generation
+// forceRequired: if true, field is always required regardless of omitempty tag
 func (this *StructField) ToSpecSchema(
 	public bool,
+	forceRequired bool,
 	enumLookup TypeEnumLookup,
 ) (propName string, schema *spec.Schema, required bool, nestedTypes []string, err error) {
 	// Filter field if public mode and field is not public
@@ -85,11 +87,16 @@ func (this *StructField) ToSpecSchema(
 	propName = parts[0]
 
 	// Check for omitempty to determine required
-	required = true
-	for _, part := range parts[1:] {
-		if strings.TrimSpace(part) == "omitempty" {
-			required = false
-			break
+	// If forceRequired is true, field is always required
+	if forceRequired {
+		required = true
+	} else {
+		required = true
+		for _, part := range parts[1:] {
+			if strings.TrimSpace(part) == "omitempty" {
+				required = false
+				break
+			}
 		}
 	}
 
@@ -119,7 +126,7 @@ func (this *StructField) ToSpecSchema(
 	}
 
 	// Build schema for the extracted type
-	schema, nestedTypes, err = buildSchemaForType(extractedType, public, this.TypeString, enumLookup)
+	schema, nestedTypes, err = buildSchemaForType(extractedType, public, forceRequired, this.TypeString, enumLookup)
 	if err != nil {
 		return "", nil, false, nil, fmt.Errorf("failed to build schema for type %s: %w", extractedType, err)
 	}
@@ -168,7 +175,13 @@ func extractTypeParameter(typeStr string) (string, error) {
 
 // buildSchemaForType builds an OpenAPI schema for a Go type string
 // Returns schema, list of nested struct type names, and error
-func buildSchemaForType(typeStr string, public bool, originalTypeStr string, enumLookup TypeEnumLookup) (*spec.Schema, []string, error) {
+func buildSchemaForType(
+	typeStr string,
+	public bool,
+	forceRequired bool,
+	originalTypeStr string,
+	enumLookup TypeEnumLookup,
+) (*spec.Schema, []string, error) {
 	var nestedTypes []string
 	var debug bool
 	if strings.Contains(typeStr, "constants.") {
@@ -205,7 +218,7 @@ func buildSchemaForType(typeStr string, public bool, originalTypeStr string, enu
 	// Handle arrays
 	if strings.HasPrefix(typeStr, "[]") {
 		elemType := strings.TrimPrefix(typeStr, "[]")
-		elemSchema, elemNestedTypes, err := buildSchemaForType(elemType, public, originalTypeStr, enumLookup)
+		elemSchema, elemNestedTypes, err := buildSchemaForType(elemType, public, forceRequired, originalTypeStr, enumLookup)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -233,7 +246,7 @@ func buildSchemaForType(typeStr string, public bool, originalTypeStr string, enu
 			return nil, nil, fmt.Errorf("invalid map type: %s", typeStr)
 		}
 		valueType := typeStr[valueStart:]
-		valueSchema, valueNestedTypes, err := buildSchemaForType(valueType, public, originalTypeStr, enumLookup)
+		valueSchema, valueNestedTypes, err := buildSchemaForType(valueType, public, forceRequired, originalTypeStr, enumLookup)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -401,7 +414,13 @@ func applyEnumsToSchema(schema *spec.Schema, enums []EnumValue) {
 	enumComments := make(map[string]string)
 	var enumDescriptions []string
 
+	dedupeMap := make(map[interface{}]bool)
+
 	for _, enum := range enums {
+		if _, exists := dedupeMap[enum.Value]; exists {
+			continue
+		}
+		dedupeMap[enum.Value] = true
 		enumValues = append(enumValues, enum.Value)
 		varNames = append(varNames, enum.Key)
 		enumDescriptions = append(enumDescriptions, enum.Comment)

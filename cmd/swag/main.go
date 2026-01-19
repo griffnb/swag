@@ -135,6 +135,7 @@ var initFlags = []cli.Flag{
 	},
 	&cli.BoolFlag{
 		Name:  requiredByDefaultFlag,
+		Value: true,
 		Usage: "Set validation required for all fields by default",
 	},
 	&cli.StringFlag{

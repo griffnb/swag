@@ -252,6 +252,7 @@ func New(options ...func(*Parser)) *Parser {
 		tags:               make(map[string]struct{}),
 		fieldParserFactory: newTagBaseFieldParser,
 		Overrides:          make(map[string]string),
+		RequiredByDefault:  true, // All fields are required by default unless marked with omitempty
 	}
 
 	for _, option := range options {

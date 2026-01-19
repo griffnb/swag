@@ -12,7 +12,8 @@ type StructBuilder struct {
 
 // BuildSpecSchema builds an OpenAPI spec.Schema for the struct
 // Returns the schema, a list of nested struct type names, and any error
-func (this *StructBuilder) BuildSpecSchema(typeName string, public bool, enumLookup TypeEnumLookup) (*spec.Schema, []string, error) {
+// forceRequired: if true, all fields are marked as required regardless of omitempty tags
+func (this *StructBuilder) BuildSpecSchema(typeName string, public bool, forceRequired bool, enumLookup TypeEnumLookup) (*spec.Schema, []string, error) {
 	schema := &spec.Schema{
 		SchemaProps: spec.SchemaProps{
 			Type:       []string{"object"},
@@ -24,7 +25,7 @@ func (this *StructBuilder) BuildSpecSchema(typeName string, public bool, enumLoo
 	nestedStructs := make(map[string]bool) // Use map to deduplicate
 
 	for _, field := range this.Fields {
-		propName, propSchema, isRequired, nestedTypes, err := field.ToSpecSchema(public, enumLookup)
+		propName, propSchema, isRequired, nestedTypes, err := field.ToSpecSchema(public, forceRequired, enumLookup)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to build schema for field %s: %w", field.Name, err)
 		}
@@ -38,7 +39,8 @@ func (this *StructBuilder) BuildSpecSchema(typeName string, public bool, enumLoo
 		schema.Properties[propName] = *propSchema
 
 		// Add to required list if needed
-		if isRequired {
+		// When forceRequired is true, all fields are required
+		if forceRequired || isRequired {
 			required = append(required, propName)
 		}
 
