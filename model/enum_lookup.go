@@ -189,5 +189,14 @@ func (p *ParserEnumLookup) GetEnumsForType(typeName string, file *ast.File) ([]E
 		return nil, fmt.Errorf("type %s not found", baseTypeName)
 	}
 
-	return enums, nil
+	dedupedEnums := make([]EnumValue, 0, len(enums))
+	seenValues := make(map[interface{}]bool)
+	for _, enum := range enums {
+		if _, seen := seenValues[enum.Value]; !seen {
+			seenValues[enum.Value] = true
+			dedupedEnums = append(dedupedEnums, enum)
+		}
+	}
+
+	return dedupedEnums, nil
 }
