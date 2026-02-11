@@ -115,9 +115,9 @@ func (this *StructField) ToSpecSchema(
 	}
 
 	var extractedType string
-	if strings.Contains(typeStr, "fields.StructField[") {
+	if strings.Contains(typeStr, "StructField[") || strings.Contains(typeStr, "IntConstantField[") || strings.Contains(typeStr, "StringField[") || strings.Contains(typeStr, "Field[") {
 		// Extract type parameter using bracket parsing
-		extractedType, err = extractTypeParameter(typeStr)
+		extractedType, err = extractGenericTypeParameter(typeStr)
 		if err != nil {
 			return "", nil, false, nil, fmt.Errorf("failed to extract type parameter from %s: %w", typeStr, err)
 		}
@@ -134,17 +134,50 @@ func (this *StructField) ToSpecSchema(
 	return propName, schema, required, nestedTypes, nil
 }
 
+// normalizeTypeName converts a full module path type name to short form
+// e.g., "github.com/swaggo/swag/testdata/core_models/constants.UnionStatus" -> "constants.UnionStatus"
+// Handles full paths, short names, and pointer types
+func normalizeTypeName(typeStr string) string {
+	// Remove pointer prefix
+	isPointer := strings.HasPrefix(typeStr, "*")
+	if isPointer {
+		typeStr = strings.TrimPrefix(typeStr, "*")
+	}
+
+	// If it contains a slash, it's a full module path - extract package.Type
+	if strings.Contains(typeStr, "/") {
+		// Find the last two segments: package/TypeName
+		lastSlash := strings.LastIndex(typeStr, "/")
+		if lastSlash >= 0 {
+			// Get everything after the last slash (e.g., "constants.UnionStatus")
+			typeStr = typeStr[lastSlash+1:]
+		}
+	}
+
+	if isPointer {
+		return "*" + typeStr
+	}
+	return typeStr
+}
+
 // extractTypeParameter extracts the type parameter T from StructField[T]
 // Handles nested brackets like StructField[map[string][]User]
 func extractTypeParameter(typeStr string) (string, error) {
-	// Find the opening bracket for StructField[
-	idx := strings.Index(typeStr, "StructField[")
+	return extractGenericTypeParameter(typeStr)
+}
+
+// extractGenericTypeParameter extracts the type parameter from any generic type
+// Handles patterns like StructField[T], IntConstantField[T], StringField[T], etc.
+// Also handles nested brackets like Field[map[string][]User]
+func extractGenericTypeParameter(typeStr string) (string, error) {
+	// Find the opening bracket
+	idx := strings.Index(typeStr, "[")
 	if idx == -1 {
-		return "", fmt.Errorf("StructField[ not found in %s", typeStr)
+		return "", fmt.Errorf("opening bracket [ not found in %s", typeStr)
 	}
 
-	// Start after "StructField["
-	start := idx + len("StructField[")
+	// Start after "["
+	start := idx + 1
 	bracketCount := 1
 	end := start
 
@@ -189,6 +222,12 @@ func buildSchemaForType(
 	}
 	if debug {
 		console.Logger.Debug("Building schema for type: $Bold{%s} (original: $Bold{%s})\n", typeStr, originalTypeStr)
+	}
+
+	// Normalize type name to short form (package.Type instead of full/module/path/package.Type)
+	typeStr = normalizeTypeName(typeStr)
+	if debug && typeStr != originalTypeStr {
+		console.Logger.Debug("Normalized type name to: $Bold{%s}\n", typeStr)
 	}
 
 	// Remove pointer prefix
@@ -330,6 +369,11 @@ func isPrimitiveType(typeStr string) bool {
 		"time.Time": true, "*time.Time": true,
 		"decimal.Decimal": true, "*decimal.Decimal": true,
 		"github.com/shopspring/decimal.Decimal": true, "*github.com/shopspring/decimal.Decimal": true,
+		// UUID types
+		"types.UUID": true, "*types.UUID": true,
+		"uuid.UUID": true, "*uuid.UUID": true,
+		"github.com/griffnb/core/lib/types.UUID": true, "*github.com/griffnb/core/lib/types.UUID": true,
+		"github.com/google/uuid.UUID": true, "*github.com/google/uuid.UUID": true,
 	}
 	return primitives[typeStr]
 }
@@ -463,6 +507,10 @@ func primitiveTypeToSchema(typeStr string) *spec.Schema {
 		return &spec.Schema{SchemaProps: spec.SchemaProps{Type: []string{"number"}, Format: "double"}}
 	case "time.Time", "*time.Time":
 		return &spec.Schema{SchemaProps: spec.SchemaProps{Type: []string{"string"}, Format: "date-time"}}
+	case "types.UUID", "*types.UUID", "uuid.UUID", "*uuid.UUID",
+		"github.com/griffnb/core/lib/types.UUID", "*github.com/griffnb/core/lib/types.UUID",
+		"github.com/google/uuid.UUID", "*github.com/google/uuid.UUID":
+		return &spec.Schema{SchemaProps: spec.SchemaProps{Type: []string{"string"}, Format: "uuid"}}
 	case "decimal.Decimal", "*decimal.Decimal", "github.com/shopspring/decimal.Decimal", "*github.com/shopspring/decimal.Decimal":
 		return &spec.Schema{SchemaProps: spec.SchemaProps{Type: []string{"number"}}}
 	default:

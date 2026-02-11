@@ -46,8 +46,27 @@ func (p *ParserEnumLookup) GetEnumsForType(typeName string, file *ast.File) ([]E
 		targetPkgPath = p.PkgPath
 	} else {
 		baseTypeName = typeName[lastDot+1:]
-		// Everything before the last dot is the package path
-		targetPkgPath = typeName[:lastDot]
+		// Everything before the last dot could be:
+		// 1. A short package name like "constants" (need to resolve to full path)
+		// 2. A full package path like "github.com/.../constants"
+		pkgPart := typeName[:lastDot]
+		
+		// Check if it's a full path (contains slash) or short name
+		if strings.Contains(pkgPart, "/") {
+			// Full path - use as-is
+			targetPkgPath = pkgPart
+		} else {
+			// Short package name - resolve relative to current package path
+			// e.g., if we're in "github.com/.../account" and see "constants",
+			// resolve to "github.com/.../constants"
+			if p.PkgPath != "" && strings.Contains(p.PkgPath, "/") {
+				lastSlash := strings.LastIndex(p.PkgPath, "/")
+				targetPkgPath = p.PkgPath[:lastSlash+1] + pkgPart
+			} else {
+				// Fallback: use short name as-is (might fail)
+				targetPkgPath = pkgPart
+			}
+		}
 	}
 
 	console.Logger.Debug("$Bold{$Red{Looking up enums for type: %s in package: %s (path: %s)}}\n", baseTypeName, "", targetPkgPath)
