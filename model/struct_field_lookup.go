@@ -348,6 +348,18 @@ func (c *CoreStructParser) ExtractFieldsRecursive(
 						tag,
 					)
 
+					tagPairs := strings.Split(tag, ":")
+					tagMap := make(map[string]string)
+					for j := 0; j < len(tagPairs)-1; j += 2 {
+						key := tagPairs[j]
+						value := strings.Trim(tagPairs[j+1], "\"")
+						tagMap[key] = value
+					}
+					if tagMap["json"] == "-" {
+						console.Logger.Debug("Skipping field %s because json tag is '-'\n", fieldName)
+						continue
+					}
+
 					// Embedded Fields
 					if subFields, _, ok := c.checkNamed(fieldType); ok {
 
