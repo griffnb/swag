@@ -1372,15 +1372,33 @@ func (parser *Parser) getTypeSchema(typeName string, file *ast.File, ref bool) (
 }
 
 func (parser *Parser) getRefTypeSchema(typeSpecDef *TypeSpecDef, schema *Schema) *spec.Schema {
-	_, ok := parser.outputSchemas[typeSpecDef]
+	_,ok := parser.outputSchemas[typeSpecDef]
 	if !ok {
-		parser.swagger.Definitions[schema.Name] = spec.Schema{}
-
-		if schema.Schema != nil {
-			parser.swagger.Definitions[schema.Name] = *schema.Schema
+		// Validate that the schema name doesn't contain unbalanced brackets (malformed type names)
+		// This can happen with complex generic types that weren't parsed correctly
+		bracketDepth := 0
+		for _, ch := range schema.Name {
+			if ch == '[' {
+				bracketDepth++
+			} else if ch == ']' {
+				bracketDepth--
+			}
 		}
+		
+		// Only register schemas with valid names (balanced brackets)
+		if bracketDepth == 0 {
+			parser.swagger.Definitions[schema.Name] = spec.Schema{}
 
-		parser.outputSchemas[typeSpecDef] = schema
+			if schema.Schema != nil {
+				parser.swagger.Definitions[schema.Name] = *schema.Schema
+			}
+
+			parser.outputSchemas[typeSpecDef] = schema
+		} else {
+			console.Logger.Debug("Skipping malformed schema name with unbalanced brackets: %s", schema.Name)
+			// Return an empty object schema instead of a reference
+			return &spec.Schema{SchemaProps: spec.SchemaProps{Type: []string{OBJECT}}}
+		}
 	}
 
 	refSchema := RefSchema(schema.Name)
@@ -1692,8 +1710,23 @@ func (parser *Parser) ParseDefinition(typeSpecDef *TypeSpecDef) (*Schema, error)
 					}
 				}
 
-				parser.swagger.Definitions[finalSchemaName] = *schemaSpec
-				console.Logger.Debug("Added schema '%s' to definitions", finalSchemaName)
+				// Validate schema name doesn't have unbalanced brackets (malformed)
+				bracketDepth := 0
+				for _, ch := range finalSchemaName {
+					if ch == '[' {
+						bracketDepth++
+					} else if ch == ']' {
+						bracketDepth--
+					}
+				}
+				
+				// Only add schemas with valid names
+				if bracketDepth == 0 {
+					parser.swagger.Definitions[finalSchemaName] = *schemaSpec
+					console.Logger.Debug("Added schema '%s' to definitions", finalSchemaName)
+				} else {
+					console.Logger.Debug("Skipping malformed schema name with unbalanced brackets: %s", finalSchemaName)
+				}
 			}
 
 			// Find the base schema - it should be package-qualified

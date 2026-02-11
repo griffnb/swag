@@ -343,6 +343,24 @@ func buildSchemaForType(
 	// e.g., "account.Properties" should remain "account.Properties"
 	typeName := typeStr
 
+	// Validate that typeName doesn't have unbalanced brackets (malformed type names)
+	// This can happen with complex generic types that weren't parsed correctly
+	bracketDepth := 0
+	for _, ch := range typeName {
+		if ch == '[' {
+			bracketDepth++
+		} else if ch == ']' {
+			bracketDepth--
+		}
+	}
+	
+	// If brackets are unbalanced, return a generic object schema instead of a bad reference
+	if bracketDepth != 0 {
+		console.Logger.Debug("Skipping reference creation for malformed type name with unbalanced brackets: %s\n", typeName)
+		// Return a generic object schema
+		return &spec.Schema{SchemaProps: spec.SchemaProps{Type: []string{"object"}}}, nil, nil
+	}
+
 	// Add Public suffix if in public mode
 	refName := typeName
 	if public {

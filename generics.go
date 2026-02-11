@@ -33,6 +33,22 @@ func normalizeGenericTypeName(name string) string {
 }
 
 func (pkgDefs *PackagesDefinitions) getTypeFromGenericParam(genericParam string, file *ast.File) (typeSpecDef *TypeSpecDef) {
+	// Check if there's an unmatched trailing ']' from generic parameter extraction.
+	// This can happen when splitGenericsTypeName processes Generic[Type] syntax.
+	// Count brackets to determine if there's an extra closing bracket.
+	depth := 0
+	for _, ch := range genericParam {
+		if ch == '[' {
+			depth++
+		} else if ch == ']' {
+			depth--
+		}
+	}
+	// If depth is negative, we have extra closing brackets - trim one
+	if depth < 0 {
+		genericParam = strings.TrimSuffix(genericParam, "]")
+	}
+	
 	if strings.HasPrefix(genericParam, "[]") {
 		typeSpecDef = pkgDefs.getTypeFromGenericParam(genericParam[2:], file)
 		if typeSpecDef == nil {
@@ -65,11 +81,34 @@ func (pkgDefs *PackagesDefinitions) getTypeFromGenericParam(genericParam string,
 	}
 
 	if strings.HasPrefix(genericParam, "map[") {
-		parts := strings.SplitN(genericParam[4:], "]", 2)
-		if len(parts) != 2 {
+		// Extract the substring after "map["
+		afterMap := genericParam[4:]
+		
+		// Find matching closing bracket for the key type
+		// We need to count brackets to handle complex key types like map[types.UUID]
+		depth := 0
+		keyEnd := -1
+		for i, ch := range afterMap {
+			if ch == '[' {
+				depth++
+			} else if ch == ']' {
+				if depth == 0 {
+					keyEnd = i
+					break	
+				}
+				depth--
+			}
+		}
+		
+		if keyEnd == -1 || keyEnd+1 >= len(afterMap) {
 			return nil
 		}
-		typeSpecDef = pkgDefs.getTypeFromGenericParam(parts[1], file)
+		
+		keyType := afterMap[:keyEnd]
+		valueType := afterMap[keyEnd+1:]
+		
+		// Recursively process the value type
+		typeSpecDef = pkgDefs.getTypeFromGenericParam(valueType, file)
 		if typeSpecDef == nil {
 			return nil
 		}
@@ -84,18 +123,20 @@ func (pkgDefs *PackagesDefinitions) getTypeFromGenericParam(genericParam string,
 				pkgDefs.uniqueDefinitions[name] = typeSpecDef
 			}
 		}
+		// Normalize the key type to replace dots and other special characters
+		normalizedKeyType := normalizeGenericTypeName(keyType)
 		return &TypeSpecDef{
 			TypeSpec: &ast.TypeSpec{
-				Name: ast.NewIdent(string(IgnoreNameOverridePrefix) + "map_" + parts[0] + "_" + typeSpecDef.TypeName()),
+				Name: ast.NewIdent(string(IgnoreNameOverridePrefix) + "map_" + normalizedKeyType + "_" + typeSpecDef.TypeName()),
 				Type: &ast.MapType{
-					Key:   ast.NewIdent(parts[0]), // assume key is string or integer
+					Key:   ast.NewIdent(keyType),
 					Value: expr,
 				},
 			},
 			Enums:      typeSpecDef.Enums,
 			PkgPath:    typeSpecDef.PkgPath,
 			ParentSpec: typeSpecDef.ParentSpec,
-			SchemaName: "map_" + parts[0] + "_" + typeSpecDef.SchemaName,
+			SchemaName: "map_" + normalizedKeyType + "_" + typeSpecDef.SchemaName,
 			NotUnique:  false,
 		}
 	}
@@ -108,6 +149,23 @@ func (pkgDefs *PackagesDefinitions) getTypeFromGenericParam(genericParam string,
 			SchemaName: genericParam,
 		}
 	}
+	
+	// Final safeguard: don't try to find type specs for malformed names
+	// Check if genericParam has balanced brackets
+	bracketDepth := 0
+	for _, ch := range genericParam {
+		if ch == '[' {
+			bracketDepth++
+		} else if ch == ']' {
+			bracketDepth--
+		}
+	}
+	// If brackets are unbalanced, this is a malformed type name - return nil
+	if bracketDepth != 0 {
+		console.Logger.Debug("Ignoring malformed type name with unbalanced brackets: %s", genericParam)
+		return nil
+	}
+	
 	return pkgDefs.FindTypeSpec(genericParam, file)
 }
 
@@ -320,6 +378,17 @@ func getExtendedGenericFieldType(file *ast.File, field ast.Expr, genericParamTyp
 		return "[]" + fieldName, err
 	case *ast.StarExpr:
 		return getExtendedGenericFieldType(file, fieldType.X, genericParamTypeDefs)
+	case *ast.MapType:
+		// Handle map types like map[string]any or map[types.UUID]map[string]any
+		keyType, err := getExtendedGenericFieldType(file, fieldType.Key, genericParamTypeDefs)
+		if err != nil {
+			return "", err
+		}
+		valueType, err := getExtendedGenericFieldType(file, fieldType.Value, genericParamTypeDefs)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("map[%s]%s", keyType, valueType), nil
 	case *ast.Ident:
 		if genericParamTypeDefs != nil {
 			if typeSpec, ok := genericParamTypeDefs[fieldType.Name]; ok {
@@ -336,6 +405,13 @@ func getExtendedGenericFieldType(file *ast.File, field ast.Expr, genericParamTyp
 			PkgPath:  file.Name.Name,
 		}
 		return tSpec.TypeName(), nil
+	case *ast.SelectorExpr:
+		// Handle qualified identifiers like types.UUID
+		xName, err := getExtendedGenericFieldType(file, fieldType.X, genericParamTypeDefs)
+		if err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("%s.%s", xName, fieldType.Sel.Name), nil
 	default:
 		return getFieldType(file, field, genericParamTypeDefs)
 	}
