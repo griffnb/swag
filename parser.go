@@ -1235,7 +1235,8 @@ func processRouterOperation(parser *Parser, operation *Operation) error {
 func convertFromSpecificToPrimitive(typeName string) (string, error) {
 	name := typeName
 	if strings.ContainsRune(name, '.') {
-		name = strings.Split(name, ".")[1]
+		parts := strings.Split(name, ".")
+		name = parts[len(parts)-1]
 	}
 
 	switch strings.ToUpper(name) {

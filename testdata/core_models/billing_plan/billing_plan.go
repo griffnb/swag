@@ -32,6 +32,7 @@ type DBColumns struct {
 	StripeProductID *fields.StringField              `public:"view" column:"stripe_product_id" type:"text"     default:""   index:"true"`
 	Level           *fields.IntField                 `public:"view" column:"level"             type:"smallint" default:"0"`
 	IsDefault       *fields.IntField                 `public:"view" column:"is_default"        type:"smallint" default:"0"  index:"true"`
+	Fees            *fields.StructField[*Fees]       `              column:"fees"              type:"jsonb"    default:"{}"`
 }
 
 type JoinData struct {

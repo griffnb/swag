@@ -328,6 +328,8 @@ func isPrimitiveType(typeStr string) bool {
 		"byte": true, "rune": true,
 		"float32": true, "float64": true,
 		"time.Time": true, "*time.Time": true,
+		"decimal.Decimal": true, "*decimal.Decimal": true,
+		"github.com/shopspring/decimal.Decimal": true, "*github.com/shopspring/decimal.Decimal": true,
 	}
 	return primitives[typeStr]
 }
@@ -461,6 +463,8 @@ func primitiveTypeToSchema(typeStr string) *spec.Schema {
 		return &spec.Schema{SchemaProps: spec.SchemaProps{Type: []string{"number"}, Format: "double"}}
 	case "time.Time", "*time.Time":
 		return &spec.Schema{SchemaProps: spec.SchemaProps{Type: []string{"string"}, Format: "date-time"}}
+	case "decimal.Decimal", "*decimal.Decimal", "github.com/shopspring/decimal.Decimal", "*github.com/shopspring/decimal.Decimal":
+		return &spec.Schema{SchemaProps: spec.SchemaProps{Type: []string{"number"}}}
 	default:
 		return &spec.Schema{SchemaProps: spec.SchemaProps{Type: []string{typeStr}}}
 	}
