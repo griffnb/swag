@@ -26,7 +26,6 @@ type TestUserInput struct {
 //	@Failure		500	{object}	response.ErrorResponse
 //	@Router			/admin/testUser [post]
 func CreateTestAccount(w http.ResponseWriter, r *http.Request) {
-
 }
 
 type APIResponse struct {
@@ -60,7 +59,6 @@ func InternalAPIAccount(_ http.ResponseWriter, req *http.Request) {
 //	@Failure		400	{object}	response.ErrorResponse
 //	@Router			/auth/me [get]
 func Me(_ http.ResponseWriter, req *http.Request) {
-
 }
 
 // adminIndex lists all accounts with pagination and search
@@ -94,4 +92,27 @@ func adminIndex(_ http.ResponseWriter, req *http.Request) {
 //		@Failure		400	{object}	response.ErrorResponse
 //		@Router			/admin/accounts [get]
 func publicIndex(_ http.ResponseWriter, req *http.Request) {
+}
+
+// Lists organization members for a local admin
+//
+//	@Title			List Organization Members
+//	@Public
+//	@Summary		List organization members
+//	@Description	Lists all members in the organization (requires local admin role)
+//	@Tags			Account
+//	@Accept			json
+//	@Produce		json
+//	@Param			q		query	string	false	"search by q"
+//	@Param			limit	query	int		false	"limit results"		default(100)	minimum(1)	maximum(1000)
+//	@Param			offset	query	int		false	"offset results"	default(0)		minimum(0)
+//	@Param			order	query	string	false	"sort results e.g. 'created_at desc'"	default(created_at desc)
+//	@Param			filters	query	string	false	"filters, see readme"
+//	@Success		200		{object}	response.SuccessResponse{data=[]account.OrgAccount}
+//	@Failure		400		{object}	response.ErrorResponse
+//	@Failure		404		{object}	response.ErrorResponse
+//	@Failure		500		{object}	response.ErrorResponse
+//	@Router			/account/organization/member [get]
+func authOrganization(_ http.ResponseWriter, req *http.Request) ([]*account.OrgAccount, int, error) {
+	return nil, 0, nil
 }
