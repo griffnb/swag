@@ -10,13 +10,32 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestRealProjectIntegration(t *testing.T) {
+	mainAPIFile := "main.go"
+
+	p := New(SetParseDependency(1), ParseUsingGoList(true))
+	p.ParseInternal = true // Include internal packages for this test
+	err := p.ParseAPIMultiSearchDir([]string{
+		"/Users/griffnb/projects/Crowdshield/atlas-go/cmd/server",
+		"/Users/griffnb/projects/Crowdshield/atlas-go/internal/controllers",
+		"/Users/griffnb/projects/Crowdshield/atlas-go/internal/models",
+	}, mainAPIFile, 100)
+	require.NoError(t, err, "Failed to parse API")
+
+	actualJSON, err := json.MarshalIndent(p.GetSwagger(), "", "  ")
+	require.NoError(t, err, "Failed to marshal swagger to JSON")
+
+	err = os.WriteFile("real_actual_output.json", actualJSON, 0o644)
+	require.NoError(t, err, "Failed to write swagger JSON to file")
+}
+
 func TestCoreModelsIntegration(t *testing.T) {
 	log.Debugf("Starting TestCoreModelsIntegration")
 
 	searchDir := "testdata/core_models"
 	mainAPIFile := "main.go"
 
-	p := New()
+	p := New(SetParseDependency(1))
 	err := p.ParseAPI(searchDir, mainAPIFile, 100)
 	require.NoError(t, err, "Failed to parse API")
 
@@ -37,7 +56,12 @@ func TestCoreModelsIntegration(t *testing.T) {
 	t.Run("Public variant schemas should exist", func(t *testing.T) {
 		assert.Contains(t, p.GetSwagger().Definitions, "account.AccountPublic", "account.AccountPublic definition should exist")
 		assert.Contains(t, p.GetSwagger().Definitions, "account.AccountJoinedPublic", "account.AccountJoinedPublic definition should exist")
-		assert.Contains(t, p.GetSwagger().Definitions, "billing_plan.BillingPlanJoinedPublic", "billing_plan.BillingPlanJoinedPublic definition should exist")
+		assert.Contains(
+			t,
+			p.GetSwagger().Definitions,
+			"billing_plan.BillingPlanJoinedPublic",
+			"billing_plan.BillingPlanJoinedPublic definition should exist",
+		)
 	})
 
 	// Test field properties in base Account schema
@@ -169,7 +193,7 @@ func TestCoreModelsIntegration(t *testing.T) {
 		actualJSON, err := json.MarshalIndent(p.GetSwagger(), "", "  ")
 		require.NoError(t, err, "Failed to marshal swagger to JSON")
 
-		err = os.WriteFile("actual_output.json", actualJSON, 0644)
+		err = os.WriteFile("actual_output.json", actualJSON, 0o644)
 		require.NoError(t, err, "Failed to write actual output")
 
 		t.Logf("Actual swagger output written to actual_output.json")
@@ -184,7 +208,7 @@ func TestAccountJoinedSchema(t *testing.T) {
 	searchDir := "testdata/core_models"
 	mainAPIFile := "main.go"
 
-	p := New()
+	p := New(SetParseDependency(1))
 	err := p.ParseAPI(searchDir, mainAPIFile, 100)
 	require.NoError(t, err)
 
@@ -233,7 +257,7 @@ func TestBillingPlanSchema(t *testing.T) {
 	searchDir := "testdata/core_models"
 	mainAPIFile := "main.go"
 
-	p := New()
+	p := New(SetParseDependency(1))
 	err := p.ParseAPI(searchDir, mainAPIFile, 100)
 	require.NoError(t, err)
 
