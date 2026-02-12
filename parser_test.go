@@ -571,7 +571,8 @@ func TestParser_ParseGeneralAPITagDocs(t *testing.T) {
 	parser := New()
 	assert.Error(t, parseGeneralAPIInfo(parser, []string{
 		"@tag.name Test",
-		"@tag.docs.description Best example documentation"}))
+		"@tag.docs.description Best example documentation",
+	}))
 
 	parser = New()
 	err := parseGeneralAPIInfo(parser, []string{
@@ -579,7 +580,8 @@ func TestParser_ParseGeneralAPITagDocs(t *testing.T) {
 		"@tag.description A test Tag",
 		"@tag.docs.url https://example.com",
 		"@tag.docs.description Best example documentation",
-		"@tag.x-displayName Test group"})
+		"@tag.x-displayName Test group",
+	})
 	assert.NoError(t, err)
 
 	b, _ := json.MarshalIndent(parser.GetSwagger().Tags, "", "    ")
@@ -610,7 +612,8 @@ func TestParser_ParseGeneralAPITagDocsWithTagFilters(t *testing.T) {
 		"@tag.name test2",
 		"@tag.description A test2 Tag",
 		"@tag.docs.url https://example2.com",
-		"@tag.docs.description Best example2 documentation"}
+		"@tag.docs.description Best example2 documentation",
+	}
 
 	expected := `[
     {
@@ -638,14 +641,17 @@ func TestParser_ParseGeneralAPISecurity(t *testing.T) {
 
 		parser := New()
 		assert.Error(t, parseGeneralAPIInfo(parser, []string{
-			"@securitydefinitions.apikey ApiKey"}))
+			"@securitydefinitions.apikey ApiKey",
+		}))
 
 		assert.Error(t, parseGeneralAPIInfo(parser, []string{
 			"@securitydefinitions.apikey ApiKey",
-			"@in header"}))
+			"@in header",
+		}))
 		assert.Error(t, parseGeneralAPIInfo(parser, []string{
 			"@securitydefinitions.apikey ApiKey",
-			"@name X-API-KEY"}))
+			"@name X-API-KEY",
+		}))
 
 		err := parseGeneralAPIInfo(parser, []string{
 			"@securitydefinitions.apikey ApiKey",
@@ -686,11 +692,13 @@ func TestParser_ParseGeneralAPISecurity(t *testing.T) {
 
 		parser := New()
 		assert.Error(t, parseGeneralAPIInfo(parser, []string{
-			"@securitydefinitions.oauth2.application OAuth2Application"}))
+			"@securitydefinitions.oauth2.application OAuth2Application",
+		}))
 
 		err := parseGeneralAPIInfo(parser, []string{
 			"@securitydefinitions.oauth2.application OAuth2Application",
-			"@tokenUrl https://example.com/oauth/token"})
+			"@tokenUrl https://example.com/oauth/token",
+		})
 		assert.NoError(t, err)
 		b, _ := json.MarshalIndent(parser.GetSwagger().SecurityDefinitions, "", "    ")
 		expected := `{
@@ -708,11 +716,13 @@ func TestParser_ParseGeneralAPISecurity(t *testing.T) {
 
 		parser := New()
 		assert.Error(t, parseGeneralAPIInfo(parser, []string{
-			"@securitydefinitions.oauth2.implicit OAuth2Implicit"}))
+			"@securitydefinitions.oauth2.implicit OAuth2Implicit",
+		}))
 
 		err := parseGeneralAPIInfo(parser, []string{
 			"@securitydefinitions.oauth2.implicit OAuth2Implicit",
-			"@authorizationurl https://example.com/oauth/authorize"})
+			"@authorizationurl https://example.com/oauth/authorize",
+		})
 		assert.NoError(t, err)
 		b, _ := json.MarshalIndent(parser.GetSwagger().SecurityDefinitions, "", "    ")
 		expected := `{
@@ -730,11 +740,13 @@ func TestParser_ParseGeneralAPISecurity(t *testing.T) {
 
 		parser := New()
 		assert.Error(t, parseGeneralAPIInfo(parser, []string{
-			"@securitydefinitions.oauth2.password OAuth2Password"}))
+			"@securitydefinitions.oauth2.password OAuth2Password",
+		}))
 
 		err := parseGeneralAPIInfo(parser, []string{
 			"@securitydefinitions.oauth2.password OAuth2Password",
-			"@tokenUrl https://example.com/oauth/token"})
+			"@tokenUrl https://example.com/oauth/token",
+		})
 		assert.NoError(t, err)
 		b, _ := json.MarshalIndent(parser.GetSwagger().SecurityDefinitions, "", "    ")
 		expected := `{
@@ -752,20 +764,24 @@ func TestParser_ParseGeneralAPISecurity(t *testing.T) {
 
 		parser := New()
 		assert.Error(t, parseGeneralAPIInfo(parser, []string{
-			"@securitydefinitions.oauth2.accessCode OAuth2AccessCode"}))
+			"@securitydefinitions.oauth2.accessCode OAuth2AccessCode",
+		}))
 
 		assert.Error(t, parseGeneralAPIInfo(parser, []string{
 			"@securitydefinitions.oauth2.accessCode OAuth2AccessCode",
-			"@tokenUrl https://example.com/oauth/token"}))
+			"@tokenUrl https://example.com/oauth/token",
+		}))
 
 		assert.Error(t, parseGeneralAPIInfo(parser, []string{
 			"@securitydefinitions.oauth2.accessCode OAuth2AccessCode",
-			"@authorizationurl https://example.com/oauth/authorize"}))
+			"@authorizationurl https://example.com/oauth/authorize",
+		}))
 
 		err := parseGeneralAPIInfo(parser, []string{
 			"@securitydefinitions.oauth2.accessCode OAuth2AccessCode",
 			"@tokenUrl https://example.com/oauth/token",
-			"@authorizationurl https://example.com/oauth/authorize"})
+			"@authorizationurl https://example.com/oauth/authorize",
+		})
 		assert.NoError(t, err)
 		b, _ := json.MarshalIndent(parser.GetSwagger().SecurityDefinitions, "", "    ")
 		expected := `{
@@ -782,7 +798,8 @@ func TestParser_ParseGeneralAPISecurity(t *testing.T) {
 			"@securitydefinitions.oauth2.accessCode OAuth2AccessCode",
 			"@tokenUrl https://example.com/oauth/token",
 			"@authorizationurl https://example.com/oauth/authorize",
-			"@scope.read,write Multiple scope"}))
+			"@scope.read,write Multiple scope",
+		}))
 	})
 }
 
@@ -2195,7 +2212,7 @@ func TestParseTypeOverrides(t *testing.T) {
 	assert.NoError(t, err)
 
 	b, _ := json.MarshalIndent(p.swagger, "", "    ")
-	//windows will fail: \r\n \n
+	// windows will fail: \r\n \n
 	assert.Equal(t, string(expected), string(b))
 }
 
@@ -2276,7 +2293,7 @@ func TestParseExternalModels(t *testing.T) {
 	err := p.ParseAPI(searchDir, mainAPIFile, defaultParseDepth)
 	assert.NoError(t, err)
 	b, _ := json.MarshalIndent(p.swagger, "", "    ")
-	//ioutil.WriteFile("./testdata/external_models/main/expected.json",b,0777)
+	// ioutil.WriteFile("./testdata/external_models/main/expected.json",b,0777)
 	expected, err := os.ReadFile(filepath.Join(searchDir, "expected.json"))
 	assert.NoError(t, err)
 	assert.Equal(t, string(expected), string(b))
@@ -2326,7 +2343,7 @@ func TestParseGoList(t *testing.T) {
 			err:       errors.New("expected 'package', found This"),
 			run: func(searchDir string) error {
 				mockErrGoFile := "testdata/golist_invalid/err.go"
-				f, err := os.OpenFile(mockErrGoFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+				f, err := os.OpenFile(mockErrGoFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
 				if err != nil {
 					return err
 				}
@@ -2348,7 +2365,7 @@ function a() {}`))
 			err:       errors.New("expected 'package', found This"),
 			run: func(searchDir string) error {
 				mockErrGoFile := "testdata/invalid_external_pkg/invalid/err.go"
-				f, err := os.OpenFile(mockErrGoFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+				f, err := os.OpenFile(mockErrGoFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
 				if err != nil {
 					return err
 				}
@@ -2448,7 +2465,6 @@ func Test(){
 	out, err := json.MarshalIndent(p.swagger.Definitions, "", "   ")
 	assert.NoError(t, err)
 	assert.Equal(t, expected, string(out))
-
 }
 
 func TestParser_ParseEmbededStruct(t *testing.T) {
@@ -2511,7 +2527,6 @@ type ResponseWrapper struct {
 	out, err := json.MarshalIndent(parser.swagger.Definitions, "", "   ")
 	assert.NoError(t, err)
 	assert.Equal(t, expected, string(out))
-
 }
 
 func TestParser_ParseStructPointerMembers(t *testing.T) {
@@ -3082,7 +3097,8 @@ func TestApiParseTag(t *testing.T) {
 		t.Error("Failed to parse cats name or description")
 	}
 
-	if cats.TagProps.ExternalDocs.URL != "https://google.de" || cats.TagProps.ExternalDocs.Description != "google is super useful to find out that cats are evil!" {
+	if cats.TagProps.ExternalDocs.URL != "https://google.de" ||
+		cats.TagProps.ExternalDocs.Description != "google is super useful to find out that cats are evil!" {
 		t.Error("URL: ", cats.TagProps.ExternalDocs.URL)
 		t.Error("Description: ", cats.TagProps.ExternalDocs.Description)
 		t.Error("Failed to parse cats external documentation")
@@ -3860,7 +3876,6 @@ func Fun()  {
 }
 
 func TestDefineTypeOfExample(t *testing.T) {
-
 	t.Run("String type", func(t *testing.T) {
 		t.Parallel()
 
@@ -4232,7 +4247,6 @@ func Test_getTagsFromComment(t *testing.T) {
 }
 
 func TestParser_matchTags(t *testing.T) {
-
 	type args struct {
 		comments []*ast.Comment
 	}
@@ -4286,19 +4300,34 @@ func TestParser_parseExtension(t *testing.T) {
 		expectedPaths map[string]bool
 	}{
 		{
-			name:          "when no flag is set, everything is exported",
-			parser:        New(),
-			expectedPaths: map[string]bool{"/without-extension": true, "/with-another-extension": true, "/with-correct-extension": true, "/with-empty-comment-line": true},
+			name:   "when no flag is set, everything is exported",
+			parser: New(),
+			expectedPaths: map[string]bool{
+				"/without-extension":       true,
+				"/with-another-extension":  true,
+				"/with-correct-extension":  true,
+				"/with-empty-comment-line": true,
+			},
 		},
 		{
-			name:          "when nonexistent flag is set, nothing is exported",
-			parser:        New(SetParseExtension("nonexistent-extension-filter")),
-			expectedPaths: map[string]bool{"/without-extension": false, "/with-another-extension": false, "/with-correct-extension": false, "/with-empty-comment-line": false},
+			name:   "when nonexistent flag is set, nothing is exported",
+			parser: New(SetParseExtension("nonexistent-extension-filter")),
+			expectedPaths: map[string]bool{
+				"/without-extension":       false,
+				"/with-another-extension":  false,
+				"/with-correct-extension":  false,
+				"/with-empty-comment-line": false,
+			},
 		},
 		{
-			name:          "when correct flag is set, only that Path is exported",
-			parser:        New(SetParseExtension("google-backend")),
-			expectedPaths: map[string]bool{"/without-extension": false, "/with-another-extension": false, "/with-correct-extension": true, "/with-empty-comment-line": false},
+			name:   "when correct flag is set, only that Path is exported",
+			parser: New(SetParseExtension("google-backend")),
+			expectedPaths: map[string]bool{
+				"/without-extension":       false,
+				"/with-another-extension":  false,
+				"/with-correct-extension":  true,
+				"/with-empty-comment-line": false,
+			},
 		},
 	}
 
@@ -4322,7 +4351,6 @@ func TestParser_parseExtension(t *testing.T) {
 				assert.Equal(t, isExpected, true)
 			}
 		})
-
 	}
 }
 

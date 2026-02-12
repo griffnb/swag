@@ -1118,7 +1118,7 @@ func (parser *Parser) ParseRouterAPIInfo(fileInfo *AstFileInfo) error {
 	if parser.ParseFuncBody {
 		for _, astComments := range fileInfo.File.Comments {
 			if astComments.List != nil {
-				if err := parser.parseRouterAPIInfoComment(astComments.List, fileInfo); err != nil {
+				if err := parser.parseRouterAPIInfoComment(astComments.List, fileInfo, nil); err != nil {
 					return err
 				}
 			}
@@ -1130,7 +1130,7 @@ func (parser *Parser) ParseRouterAPIInfo(fileInfo *AstFileInfo) error {
 	for _, decl := range fileInfo.File.Decls {
 		funcDoc, ok := getFuncDoc(decl)
 		if ok && funcDoc != nil && funcDoc.List != nil {
-			if err := parser.parseRouterAPIInfoComment(funcDoc.List, fileInfo); err != nil {
+			if err := parser.parseRouterAPIInfoComment(funcDoc.List, fileInfo, decl); err != nil {
 				return err
 			}
 		}
@@ -1139,10 +1139,23 @@ func (parser *Parser) ParseRouterAPIInfo(fileInfo *AstFileInfo) error {
 	return nil
 }
 
-func (parser *Parser) parseRouterAPIInfoComment(comments []*ast.Comment, fileInfo *AstFileInfo) error {
+func (parser *Parser) parseRouterAPIInfoComment(comments []*ast.Comment, fileInfo *AstFileInfo, decl any) error {
 	if parser.matchTags(comments) && matchExtension(parser.parseExtension, comments) {
 		// for per 'function' comment, create a new 'Operation' object
 		operation := NewOperation(parser, SetCodeExampleFilesDirectory(parser.codeExampleFilesDir))
+		
+		// Set source location information
+		operation.FilePath = fileInfo.Path
+		if decl != nil {
+			if funcDecl, ok := decl.(*ast.FuncDecl); ok {
+				operation.FunctionName = funcDecl.Name.Name
+				if fileInfo.FileSet != nil {
+					position := fileInfo.FileSet.Position(funcDecl.Pos())
+					operation.LineNumber = position.Line
+				}
+			}
+		}
+		
 		for _, comment := range comments {
 			err := operation.ParseComment(comment.Text, fileInfo.File)
 			if err != nil {
@@ -1183,6 +1196,17 @@ func refRouteMethodOp(item *spec.PathItem, method string) (op **spec.Operation) 
 }
 
 func processRouterOperation(parser *Parser, operation *Operation) error {
+	// Add source location extensions
+	if operation.FilePath != "" {
+		operation.Extensions["x-path"] = operation.FilePath
+	}
+	if operation.FunctionName != "" {
+		operation.Extensions["x-function"] = operation.FunctionName
+	}
+	if operation.LineNumber > 0 {
+		operation.Extensions["x-line"] = operation.LineNumber
+	}
+
 	for _, routeProperties := range operation.RouterProperties {
 		var (
 			pathItem spec.PathItem
@@ -1372,7 +1396,7 @@ func (parser *Parser) getTypeSchema(typeName string, file *ast.File, ref bool) (
 }
 
 func (parser *Parser) getRefTypeSchema(typeSpecDef *TypeSpecDef, schema *Schema) *spec.Schema {
-	_,ok := parser.outputSchemas[typeSpecDef]
+	_, ok := parser.outputSchemas[typeSpecDef]
 	if !ok {
 		// Validate that the schema name doesn't contain unbalanced brackets (malformed type names)
 		// This can happen with complex generic types that weren't parsed correctly
@@ -1384,7 +1408,7 @@ func (parser *Parser) getRefTypeSchema(typeSpecDef *TypeSpecDef, schema *Schema)
 				bracketDepth--
 			}
 		}
-		
+
 		// Only register schemas with valid names (balanced brackets)
 		if bracketDepth == 0 {
 			parser.swagger.Definitions[schema.Name] = spec.Schema{}
@@ -1719,7 +1743,7 @@ func (parser *Parser) ParseDefinition(typeSpecDef *TypeSpecDef) (*Schema, error)
 						bracketDepth--
 					}
 				}
-				
+
 				// Only add schemas with valid names
 				if bracketDepth == 0 {
 					parser.swagger.Definitions[finalSchemaName] = *schemaSpec
@@ -1744,7 +1768,11 @@ func (parser *Parser) ParseDefinition(typeSpecDef *TypeSpecDef) (*Schema, error)
 
 			baseSchema := allSchemas[packageName+"."+typeSpecDef.Name()]
 			if baseSchema == nil {
-				console.Logger.Debug("Warning: base schema not found for key '%s' (tried unqualified '%s'), using empty object", baseSchemaKey, typeSpecDef.Name())
+				console.Logger.Debug(
+					"Warning: base schema not found for key '%s' (tried unqualified '%s'), using empty object",
+					baseSchemaKey,
+					typeSpecDef.Name(),
+				)
 				baseSchema = &spec.Schema{SchemaProps: spec.SchemaProps{Type: []string{OBJECT}}}
 			}
 

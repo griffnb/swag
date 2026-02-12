@@ -34,6 +34,9 @@ type Operation struct {
 	RouterProperties []RouteProperties
 	State            string
 	IsPublic         bool // Set to true when @public annotation is present
+	FilePath         string
+	FunctionName     string
+	LineNumber       int
 }
 
 var mimeTypeAliases = map[string]string{
