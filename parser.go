@@ -21,6 +21,7 @@ import (
 	"github.com/go-openapi/spec"
 	"github.com/swaggo/swag/console"
 	"github.com/swaggo/swag/internal/loader"
+	"github.com/swaggo/swag/internal/registry"
 	"github.com/swaggo/swag/model"
 )
 
@@ -115,6 +116,9 @@ var allMethod = map[string]struct{}{
 type Parser struct {
 	// loader handles loading Go packages and files
 	loader *loader.Service
+
+	// registry provides centralized type and package registry (new system)
+	registry *registry.Service
 
 	// swagger represents the root document object for the API specification
 	swagger *spec.Swagger
@@ -278,6 +282,11 @@ func New(options ...func(*Parser)) *Parser {
 		loader.WithDebugger(parser.debug),
 	)
 
+	// Initialize registry service (new system)
+	parser.registry = registry.NewService()
+	parser.registry.SetParseDependency(parser.ParseDependency)
+	parser.registry.SetDebugger(parser.debug)
+
 	return parser
 }
 
@@ -438,16 +447,22 @@ func (parser *Parser) ParseAPIMultiSearchDir(searchDirs []string, mainAPIFile st
 			return err
 		}
 
-		// Transfer files to parser.packages
+		// Transfer files to both parser.packages (old) and parser.registry (new)
 		for astFile, fileInfo := range result.Files {
+			// Old system
 			if err := parser.packages.CollectAstFile(fileInfo.FileSet, fileInfo.PackagePath, fileInfo.Path, astFile, fileInfo.ParseFlag); err != nil {
+				return err
+			}
+			// New system (dual-write)
+			if err := parser.registry.CollectAstFile(fileInfo.FileSet, fileInfo.PackagePath, fileInfo.Path, astFile, fileInfo.ParseFlag); err != nil {
 				return err
 			}
 		}
 
-		// Add package metadata
+		// Add package metadata to both systems
 		if len(result.Packages) > 0 {
 			parser.packages.AddPackages(result.Packages)
+			parser.registry.AddPackages(result.Packages)
 		}
 	} else {
 		// Use standard file walking loader
@@ -460,9 +475,14 @@ func (parser *Parser) ParseAPIMultiSearchDir(searchDirs []string, mainAPIFile st
 			return err
 		}
 
-		// Transfer files to parser.packages
+		// Transfer files to both parser.packages (old) and parser.registry (new)
 		for astFile, fileInfo := range result.Files {
+			// Old system
 			if err := parser.packages.CollectAstFile(fileInfo.FileSet, fileInfo.PackagePath, fileInfo.Path, astFile, fileInfo.ParseFlag); err != nil {
+				return err
+			}
+			// New system (dual-write)
+			if err := parser.registry.CollectAstFile(fileInfo.FileSet, fileInfo.PackagePath, fileInfo.Path, astFile, fileInfo.ParseFlag); err != nil {
 				return err
 			}
 		}
@@ -475,12 +495,28 @@ func (parser *Parser) ParseAPIMultiSearchDir(searchDirs []string, mainAPIFile st
 				return err
 			}
 
-			// Transfer dependency files to parser.packages
+			// Transfer dependency files to both systems
 			for astFile, fileInfo := range depResult.Files {
+				// Old system
 				if err := parser.packages.CollectAstFile(fileInfo.FileSet, fileInfo.PackagePath, fileInfo.Path, astFile, fileInfo.ParseFlag); err != nil {
 					return err
 				}
+				// New system (dual-write)
+				if err := parser.registry.CollectAstFile(fileInfo.FileSet, fileInfo.PackagePath, fileInfo.Path, astFile, fileInfo.ParseFlag); err != nil {
+					return err
+				}
 			}
+		}
+	}
+
+	// Verify both systems have same file counts
+	packagesFileCount := len(parser.packages.files)
+	registryFileCount := len(parser.registry.Files())
+	if parser.debug != nil {
+		parser.debug.Printf("Old packages system has %d files", packagesFileCount)
+		parser.debug.Printf("New registry system has %d files", registryFileCount)
+		if packagesFileCount != registryFileCount {
+			parser.debug.Printf("WARNING: File count mismatch between old and new systems")
 		}
 	}
 
@@ -1813,10 +1849,10 @@ func (parser *Parser) ParseDefinition(typeSpecDef *TypeSpecDef) (*Schema, error)
 		enumDescriptions := make([]string, 0, len(typeSpecDef.Enums))
 		for _, value := range typeSpecDef.Enums {
 			definition.Enum = append(definition.Enum, value.Value)
-			varnames = append(varnames, value.key)
+			varnames = append(varnames, value.Key)
 			enumDescriptions = append(enumDescriptions, value.Comment)
 			if len(value.Comment) > 0 {
-				enumComments[value.key] = value.Comment
+				enumComments[value.Key] = value.Comment
 			}
 		}
 		if definition.Extensions == nil {

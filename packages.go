@@ -455,7 +455,7 @@ func (pkgDefs *PackagesDefinitions) EvaluateConstValue(
 		}
 		recursiveStack[fullConstName] = struct{}{}
 
-		value, evalType := pkg.evaluateConstValue(cv.File, cv.Name.Obj.Data.(int), expr, pkgDefs, recursiveStack)
+		value, evalType := pkg.EvaluateConstValue(cv.File, cv.Name.Obj.Data.(int), expr, pkgDefs, recursiveStack)
 		if cv.Type == nil && evalType != nil {
 			cv.Type = evalType
 		}
@@ -525,7 +525,7 @@ func (pkgDefs *PackagesDefinitions) collectConstEnums(parsedSchemas map[*TypeSpe
 			}
 
 			enumValue := EnumValue{
-				key:     name,
+				Key:     name,
 				Value:   constVar.Value,
 				Comment: commentWithoutNameOverride(constVar.Comment),
 			}

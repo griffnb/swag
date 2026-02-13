@@ -78,24 +78,8 @@ func IsNumericType(typeName string) bool {
 	return typeName == INTEGER || typeName == NUMBER
 }
 
-// TransToValidPrimitiveSchema transfer golang basic type to swagger schema with format considered.
-func TransToValidPrimitiveSchema(typeName string) *spec.Schema {
-	switch typeName {
-	case "int", "uint":
-		return &spec.Schema{SchemaProps: spec.SchemaProps{Type: []string{INTEGER}}}
-	case "uint8", "int8", "uint16", "int16", "byte", "int32", "uint32", "rune":
-		return &spec.Schema{SchemaProps: spec.SchemaProps{Type: []string{INTEGER}, Format: "int32"}}
-	case "uint64", "int64":
-		return &spec.Schema{SchemaProps: spec.SchemaProps{Type: []string{INTEGER}, Format: "int64"}}
-	case "float32", "float64":
-		return &spec.Schema{SchemaProps: spec.SchemaProps{Type: []string{NUMBER}, Format: typeName}}
-	case "bool":
-		return &spec.Schema{SchemaProps: spec.SchemaProps{Type: []string{BOOLEAN}}}
-	case "string":
-		return &spec.Schema{SchemaProps: spec.SchemaProps{Type: []string{STRING}}}
-	}
-	return &spec.Schema{SchemaProps: spec.SchemaProps{Type: []string{typeName}}}
-}
+// TransToValidPrimitiveSchema is now defined in aliases.go for backward compatibility.
+// The implementation has been moved to internal/domain/utils.go
 
 // TransToValidSchemeTypeWithFormat indicates type will transfer golang basic type to swagger supported type with format.
 func TransToValidSchemeTypeWithFormat(typeName string) (string, string) {
@@ -137,29 +121,6 @@ func TransToValidSchemeType(typeName string) string {
 }
 
 // IsGolangPrimitiveType determine whether the type name is a golang primitive type.
-func IsGolangPrimitiveType(typeName string) bool {
-	switch typeName {
-	case "uint",
-		"int",
-		"uint8",
-		"int8",
-		"uint16",
-		"int16",
-		"byte",
-		"uint32",
-		"int32",
-		"rune",
-		"uint64",
-		"int64",
-		"float32",
-		"float64",
-		"bool",
-		"string":
-		return true
-	}
-
-	return false
-}
 
 // TransToValidCollectionFormat determine valid collection format.
 func TransToValidCollectionFormat(format string) string {
