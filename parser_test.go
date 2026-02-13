@@ -3881,7 +3881,7 @@ func TestDefineTypeOfExample(t *testing.T) {
 	t.Run("String type", func(t *testing.T) {
 		t.Parallel()
 
-		example, err := defineTypeOfExample("string", "", "example")
+		example, err := DefineTypeOfExample("string", "", "example")
 		assert.NoError(t, err)
 		assert.Equal(t, example.(string), "example")
 	})
@@ -3889,44 +3889,44 @@ func TestDefineTypeOfExample(t *testing.T) {
 	t.Run("Number type", func(t *testing.T) {
 		t.Parallel()
 
-		example, err := defineTypeOfExample("number", "", "12.34")
+		example, err := DefineTypeOfExample("number", "", "12.34")
 		assert.NoError(t, err)
 		assert.Equal(t, example.(float64), 12.34)
 
-		_, err = defineTypeOfExample("number", "", "two")
+		_, err = DefineTypeOfExample("number", "", "two")
 		assert.Error(t, err)
 	})
 
 	t.Run("Integer type", func(t *testing.T) {
 		t.Parallel()
 
-		example, err := defineTypeOfExample("integer", "", "12")
+		example, err := DefineTypeOfExample("integer", "", "12")
 		assert.NoError(t, err)
 		assert.Equal(t, example.(int), 12)
 
-		_, err = defineTypeOfExample("integer", "", "two")
+		_, err = DefineTypeOfExample("integer", "", "two")
 		assert.Error(t, err)
 	})
 
 	t.Run("Boolean type", func(t *testing.T) {
 		t.Parallel()
 
-		example, err := defineTypeOfExample("boolean", "", "true")
+		example, err := DefineTypeOfExample("boolean", "", "true")
 		assert.NoError(t, err)
 		assert.Equal(t, example.(bool), true)
 
-		_, err = defineTypeOfExample("boolean", "", "!true")
+		_, err = DefineTypeOfExample("boolean", "", "!true")
 		assert.Error(t, err)
 	})
 
 	t.Run("Array type", func(t *testing.T) {
 		t.Parallel()
 
-		example, err := defineTypeOfExample("array", "", "one,two,three")
+		example, err := DefineTypeOfExample("array", "", "one,two,three")
 		assert.Error(t, err)
 		assert.Nil(t, example)
 
-		example, err = defineTypeOfExample("array", "string", "one,two,three")
+		example, err = DefineTypeOfExample("array", "string", "one,two,three")
 		assert.NoError(t, err)
 
 		var arr []string
@@ -3941,19 +3941,19 @@ func TestDefineTypeOfExample(t *testing.T) {
 	t.Run("Object type", func(t *testing.T) {
 		t.Parallel()
 
-		example, err := defineTypeOfExample("object", "", "key_one:one,key_two:two,key_three:three")
+		example, err := DefineTypeOfExample("object", "", "key_one:one,key_two:two,key_three:three")
 		assert.Error(t, err)
 		assert.Nil(t, example)
 
-		example, err = defineTypeOfExample("object", "string", "key_one,key_two,key_three")
+		example, err = DefineTypeOfExample("object", "string", "key_one,key_two,key_three")
 		assert.Error(t, err)
 		assert.Nil(t, example)
 
-		example, err = defineTypeOfExample("object", "oops", "key_one:one,key_two:two,key_three:three")
+		example, err = DefineTypeOfExample("object", "oops", "key_one:one,key_two:two,key_three:three")
 		assert.Error(t, err)
 		assert.Nil(t, example)
 
-		example, err = defineTypeOfExample("object", "string", "key_one:one,key_two:two,key_three:three")
+		example, err = DefineTypeOfExample("object", "string", "key_one:one,key_two:two,key_three:three")
 		assert.NoError(t, err)
 		obj := map[string]string{}
 
@@ -3967,7 +3967,7 @@ func TestDefineTypeOfExample(t *testing.T) {
 	t.Run("Invalid type", func(t *testing.T) {
 		t.Parallel()
 
-		example, err := defineTypeOfExample("oops", "", "")
+		example, err := DefineTypeOfExample("oops", "", "")
 		assert.Error(t, err)
 		assert.Nil(t, example)
 	})

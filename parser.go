@@ -2246,8 +2246,9 @@ func (parser *Parser) GetSchemaTypePath(schema *spec.Schema, depth int) []string
 	return []string{ANY}
 }
 
-// defineTypeOfExample example value define the type (object and array unsupported).
-func defineTypeOfExample(schemaType, arrayType, exampleValue string) (interface{}, error) {
+// DefineTypeOfExample example value define the type (object and array unsupported).
+// TODO: Temporary export for Phase 6 migration - will be refactored in Phase 8
+func DefineTypeOfExample(schemaType, arrayType, exampleValue string) (interface{}, error) {
 	switch schemaType {
 	case STRING:
 		return exampleValue, nil
@@ -2276,7 +2277,7 @@ func defineTypeOfExample(schemaType, arrayType, exampleValue string) (interface{
 		values := strings.Split(exampleValue, ",")
 		result := make([]interface{}, 0)
 		for _, value := range values {
-			v, err := defineTypeOfExample(arrayType, "", value)
+			v, err := DefineTypeOfExample(arrayType, "", value)
 			if err != nil {
 				return nil, err
 			}
@@ -2298,7 +2299,7 @@ func defineTypeOfExample(schemaType, arrayType, exampleValue string) (interface{
 			mapData := strings.SplitN(value, ":", 2)
 
 			if len(mapData) == 2 {
-				v, err := defineTypeOfExample(arrayType, "", mapData[1])
+				v, err := DefineTypeOfExample(arrayType, "", mapData[1])
 				if err != nil {
 					return nil, err
 				}

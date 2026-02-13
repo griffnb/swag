@@ -1,4 +1,4 @@
-package swag
+package structparser
 
 import (
 	"fmt"
@@ -11,9 +11,10 @@ import (
 	"unicode"
 
 	"github.com/go-openapi/spec"
+	swag "github.com/swaggo/swag"
 )
 
-var _ FieldParser = &tagBaseFieldParser{p: nil, field: nil, tag: ""}
+var _ swag.FieldParser = &tagBaseFieldParser{p: nil, field: nil, tag: ""}
 
 const (
 	requiredLabel    = "required"
@@ -21,15 +22,40 @@ const (
 	omitEmptyLabel   = "omitempty"
 	swaggerTypeTag   = "swaggertype"
 	swaggerIgnoreTag = "swaggerignore"
+
+	// TODO: These are duplicated from operation.go - will be refactored in Phase 8
+	jsonTag     = "json"
+	formTag     = "form"
+	headerTag   = "header"
+	bindingTag  = "binding"
+	validateTag = "validate"
+	uriTag      = "uri"
+	formatTag   = "format"
+	titleTag    = "title"
+	enumsTag    = "enums"
+	maximumTag  = "maximum"
+	minimumTag  = "minimum"
+	defaultTag  = "swag_default"
+	exampleTag  = "example"
+	minLengthTag = "minLength"
+	maxLengthTag = "maxLength"
+	readOnlyTag  = "readonly"
+	multipleOfTag = "multipleOf"
+	extensionsTag = "extensions"
+)
+
+const (
+	// TODO: These are duplicated from aliases.go/domain - will be refactored in Phase 8
+	enumVarNamesExtension = "x-enum-varnames"
 )
 
 type tagBaseFieldParser struct {
-	p     *Parser
+	p     *swag.Parser
 	field *ast.Field
 	tag   reflect.StructTag
 }
 
-func newTagBaseFieldParser(p *Parser, field *ast.Field) FieldParser {
+func newTagBaseFieldParser(p *swag.Parser, field *ast.Field) swag.FieldParser {
 	fieldParser := tagBaseFieldParser{
 		p:     p,
 		field: field,
@@ -89,9 +115,9 @@ func (ps *tagBaseFieldParser) FieldNames() ([]string, error) {
 	var names = make([]string, 0, len(ps.field.Names))
 	for _, name := range ps.field.Names {
 		switch ps.p.PropNamingStrategy {
-		case SnakeCase:
+		case swag.SnakeCase:
 			names = append(names, toSnakeCase(name.Name))
-		case PascalCase:
+		case swag.PascalCase:
 			names = append(names, name.Name)
 		default:
 			names = append(names, toLowerCamelCase(name.Name))
@@ -166,7 +192,7 @@ func (ps *tagBaseFieldParser) CustomSchema() (*spec.Schema, error) {
 
 	typeTag := ps.tag.Get(swaggerTypeTag)
 	if typeTag != "" {
-		return BuildCustomSchema(strings.Split(typeTag, ","))
+		return swag.BuildCustomSchema(strings.Split(typeTag, ","))
 	}
 
 	return nil, nil
@@ -247,7 +273,7 @@ func (ps *tagBaseFieldParser) ComplementSchema(schema *spec.Schema) error {
 		return fmt.Errorf("invalid type for field: %s", ps.field.Names[0])
 	}
 
-	if IsRefSchema(schema) {
+	if swag.IsRefSchema(schema) {
 		var newSchema = spec.Schema{}
 		err := ps.complementSchema(&newSchema, types)
 		if err != nil {
@@ -282,7 +308,7 @@ func (ps *tagBaseFieldParser) complementSchema(schema *spec.Schema, types []stri
 		title:      ps.tag.Get(titleTag),
 	}
 
-	if len(types) > 1 && (types[0] == ARRAY || types[0] == OBJECT) {
+	if len(types) > 1 && (types[0] == swag.ARRAY || types[0] == swag.OBJECT) {
 		field.arrayType = types[1]
 	}
 
@@ -306,7 +332,7 @@ func (ps *tagBaseFieldParser) complementSchema(schema *spec.Schema, types []stri
 		}
 	}
 
-	if IsNumericType(field.schemaType) || IsNumericType(field.arrayType) {
+	if swag.IsNumericType(field.schemaType) || swag.IsNumericType(field.arrayType) {
 		maximum, err := getFloatTag(ps.tag, maximumTag)
 		if err != nil {
 			return err
@@ -335,7 +361,7 @@ func (ps *tagBaseFieldParser) complementSchema(schema *spec.Schema, types []stri
 		}
 	}
 
-	if field.schemaType == STRING || field.arrayType == STRING {
+	if field.schemaType == swag.STRING || field.arrayType == swag.STRING {
 		maxLength, err := getIntTag(ps.tag, maxLengthTag)
 		if err != nil {
 			return err
@@ -361,7 +387,7 @@ func (ps *tagBaseFieldParser) complementSchema(schema *spec.Schema, types []stri
 		field.exampleValue = exampleTagValue
 
 		if !strings.Contains(jsonTagValue, ",string") {
-			example, err := DefineTypeOfExample(field.schemaType, field.arrayType, exampleTagValue)
+			example, err := swag.DefineTypeOfExample(field.schemaType, field.arrayType, exampleTagValue)
 			if err != nil {
 				return err
 			}
@@ -375,16 +401,16 @@ func (ps *tagBaseFieldParser) complementSchema(schema *spec.Schema, types []stri
 		// @encoding/json: "It applies only to fields of string, floating point, integer, or boolean types."
 		defaultValues := map[string]string{
 			// Zero Values as string
-			STRING:  "",
-			INTEGER: "0",
-			BOOLEAN: "false",
-			NUMBER:  "0",
+			swag.STRING:  "",
+			swag.INTEGER: "0",
+			swag.BOOLEAN: "false",
+			swag.NUMBER:  "0",
 		}
 
 		defaultValue, ok := defaultValues[field.schemaType]
 		if ok {
-			field.schemaType = STRING
-			*schema = *PrimitiveSchema(field.schemaType)
+			field.schemaType = swag.STRING
+			*schema = *swag.PrimitiveSchema(field.schemaType)
 
 			if field.exampleValue == nil {
 				// if exampleValue is not defined by the user,
@@ -407,7 +433,7 @@ func (ps *tagBaseFieldParser) complementSchema(schema *spec.Schema, types []stri
 
 	defaultTagValue, ok := ps.tag.Lookup(defaultTag)
 	if ok {
-		value, err := DefineType(field.schemaType, defaultTagValue)
+		value, err := swag.DefineType(field.schemaType, defaultTagValue)
 		if err != nil {
 			return err
 		}
@@ -417,14 +443,14 @@ func (ps *tagBaseFieldParser) complementSchema(schema *spec.Schema, types []stri
 
 	schema.Example = field.exampleValue
 
-	if field.schemaType != ARRAY {
+	if field.schemaType != swag.ARRAY {
 		schema.Format = field.formatType
 	}
 	schema.Title = field.title
 
 	extensionsTagValue := ps.tag.Get(extensionsTag)
 	if extensionsTagValue != "" {
-		schema.Extensions = SetExtensionParam(extensionsTagValue)
+		schema.Extensions = swag.SetExtensionParam(extensionsTagValue)
 	}
 
 	varNamesTag := ps.tag.Get("x-enum-varnames")
@@ -440,7 +466,7 @@ func (ps *tagBaseFieldParser) complementSchema(schema *spec.Schema, types []stri
 			field.enumVarNames = append(field.enumVarNames, v)
 		}
 
-		if field.schemaType == ARRAY {
+		if field.schemaType == swag.ARRAY {
 			// Add the var names in the items schema
 			if schema.Items.Schema.Extensions == nil {
 				schema.Items.Schema.Extensions = map[string]interface{}{}
@@ -457,7 +483,7 @@ func (ps *tagBaseFieldParser) complementSchema(schema *spec.Schema, types []stri
 
 	eleSchema := schema
 
-	if field.schemaType == ARRAY {
+	if field.schemaType == swag.ARRAY {
 		// For Array only
 		schema.MaxItems = field.maxItems
 		schema.MinItems = field.minItems
@@ -575,7 +601,7 @@ func parseValidTags(validTag string, sf *structField) {
 		case "oneof":
 			sf.setOneOf(valValue)
 		case "unique":
-			if sf.schemaType == ARRAY {
+			if sf.schemaType == swag.ARRAY {
 				sf.unique = true
 			}
 		case "dive":
@@ -589,14 +615,14 @@ func parseValidTags(validTag string, sf *structField) {
 
 func parseEnumTags(enumTag string, field *structField) error {
 	enumType := field.schemaType
-	if field.schemaType == ARRAY {
+	if field.schemaType == swag.ARRAY {
 		enumType = field.arrayType
 	}
 
 	field.enums = nil
 
 	for _, e := range strings.Split(enumTag, ",") {
-		value, err := DefineType(enumType, e)
+		value, err := swag.DefineType(enumType, e)
 		if err != nil {
 			return err
 		}
@@ -613,13 +639,13 @@ func (sf *structField) setOneOf(valValue string) {
 	}
 
 	enumType := sf.schemaType
-	if sf.schemaType == ARRAY {
+	if sf.schemaType == swag.ARRAY {
 		enumType = sf.arrayType
 	}
 
 	valValues := parseOneOfParam2(valValue)
 	for i := range valValues {
-		value, err := DefineType(enumType, valValues[i])
+		value, err := swag.DefineType(enumType, valValues[i])
 		if err != nil {
 			continue
 		}
@@ -635,12 +661,12 @@ func (sf *structField) setMin(valValue string) {
 	}
 
 	switch sf.schemaType {
-	case INTEGER, NUMBER:
+	case swag.INTEGER, swag.NUMBER:
 		sf.minimum = &value
-	case STRING:
+	case swag.STRING:
 		intValue := int64(value)
 		sf.minLength = &intValue
-	case ARRAY:
+	case swag.ARRAY:
 		intValue := int64(value)
 		sf.minItems = &intValue
 	}
@@ -653,12 +679,12 @@ func (sf *structField) setMax(valValue string) {
 	}
 
 	switch sf.schemaType {
-	case INTEGER, NUMBER:
+	case swag.INTEGER, swag.NUMBER:
 		sf.maximum = &value
-	case STRING:
+	case swag.STRING:
 		intValue := int64(value)
 		sf.maxLength = &intValue
-	case ARRAY:
+	case swag.ARRAY:
 		intValue := int64(value)
 		sf.maxItems = &intValue
 	}

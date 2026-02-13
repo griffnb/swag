@@ -510,7 +510,7 @@ func (operation *Operation) parseParamAttribute(comment, objectType, schemaType,
 		case schemaExampleTag:
 			err = setSchemaExample(param, schemaType, attr)
 		case extensionsTag:
-			param.Extensions = setExtensionParam(attr)
+			param.Extensions = SetExtensionParam(attr)
 		case collectionFormatTag:
 			err = setCollectionFormatParam(param, attrKey, objectType, attr, comment)
 		}
@@ -579,7 +579,7 @@ func setEnumParam(param *spec.Parameter, attr, objectType, schemaType, paramType
 	for _, e := range strings.Split(attr, ",") {
 		e = strings.TrimSpace(e)
 
-		value, err := defineType(schemaType, e)
+		value, err := DefineType(schemaType, e)
 		if err != nil {
 			return err
 		}
@@ -600,7 +600,9 @@ func setEnumParam(param *spec.Parameter, attr, objectType, schemaType, paramType
 	return nil
 }
 
-func setExtensionParam(attr string) spec.Extensions {
+// SetExtensionParam parses extension attributes from swagger comments
+// TODO: Temporary export for Phase 6 migration - will be refactored in Phase 8
+func SetExtensionParam(attr string) spec.Extensions {
 	extensions := spec.Extensions{}
 
 	for _, val := range splitNotWrapped(attr, ',') {
@@ -634,7 +636,7 @@ func setCollectionFormatParam(param *spec.Parameter, name, schemaType, attr, com
 }
 
 func setDefault(param *spec.Parameter, schemaType string, value string) error {
-	val, err := defineType(schemaType, value)
+	val, err := DefineType(schemaType, value)
 	if err != nil {
 		return nil // Don't set a default value if it's not valid
 	}
@@ -645,7 +647,7 @@ func setDefault(param *spec.Parameter, schemaType string, value string) error {
 }
 
 func setSchemaExample(param *spec.Parameter, schemaType string, value string) error {
-	val, err := defineType(schemaType, value)
+	val, err := DefineType(schemaType, value)
 	if err != nil {
 		return nil // Don't set a example value if it's not valid
 	}
@@ -666,7 +668,7 @@ func setSchemaExample(param *spec.Parameter, schemaType string, value string) er
 }
 
 func setExample(param *spec.Parameter, schemaType string, value string) error {
-	val, err := defineType(schemaType, value)
+	val, err := DefineType(schemaType, value)
 	if err != nil {
 		return nil // Don't set a example value if it's not valid
 	}
@@ -676,8 +678,9 @@ func setExample(param *spec.Parameter, schemaType string, value string) error {
 	return nil
 }
 
-// defineType enum value define the type (object and array unsupported).
-func defineType(schemaType string, value string) (v interface{}, err error) {
+// DefineType enum value define the type (object and array unsupported).
+// TODO: Temporary export for Phase 6 migration - will be refactored in Phase 8
+func DefineType(schemaType string, value string) (v interface{}, err error) {
 	schemaType = TransToValidSchemeType(schemaType)
 
 	switch schemaType {
