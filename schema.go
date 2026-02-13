@@ -49,6 +49,7 @@ func CheckSchemaType(typeName string) error {
 }
 
 // IsSimplePrimitiveType determine whether the type name is a simple primitive type.
+// Deprecated: Use internal/schema.IsSimplePrimitiveType instead.
 func IsSimplePrimitiveType(typeName string) bool {
 	switch typeName {
 	case STRING, NUMBER, INTEGER, BOOLEAN:
@@ -59,6 +60,7 @@ func IsSimplePrimitiveType(typeName string) bool {
 }
 
 // IsPrimitiveType determine whether the type name is a primitive type.
+// Deprecated: Use internal/schema.IsPrimitiveType instead.
 func IsPrimitiveType(typeName string) bool {
 	switch typeName {
 	case STRING, NUMBER, INTEGER, BOOLEAN, ARRAY, OBJECT, FUNC:
@@ -169,6 +171,7 @@ func commentWithoutNameOverride(comment string) string {
 }
 
 // IsComplexSchema whether a schema is complex and should be a ref schema
+// Deprecated: Use internal/schema.IsComplexSchema instead.
 func IsComplexSchema(schema *spec.Schema) bool {
 	// a enum type should be complex
 	if len(schema.Enum) > 0 {
@@ -190,21 +193,25 @@ func IsComplexSchema(schema *spec.Schema) bool {
 }
 
 // IsRefSchema whether a schema is a reference schema.
+// Deprecated: Use internal/schema.IsRefSchema instead.
 func IsRefSchema(schema *spec.Schema) bool {
 	return schema.Ref.Ref.GetURL() != nil
 }
 
 // RefSchema build a reference schema.
+// Deprecated: Use internal/schema.RefSchema instead.
 func RefSchema(refType string) *spec.Schema {
 	return spec.RefSchema("#/definitions/" + refType)
 }
 
 // PrimitiveSchema build a primitive schema.
+// Deprecated: Use internal/schema.PrimitiveSchema instead.
 func PrimitiveSchema(refType string) *spec.Schema {
 	return &spec.Schema{SchemaProps: spec.SchemaProps{Type: []string{refType}}}
 }
 
 // BuildCustomSchema build custom schema specified by tag swaggertype.
+// Deprecated: Use internal/schema.BuildCustomSchema instead.
 func BuildCustomSchema(types []string) (*spec.Schema, error) {
 	if len(types) == 0 {
 		return nil, nil
@@ -250,6 +257,7 @@ func BuildCustomSchema(types []string) (*spec.Schema, error) {
 }
 
 // MergeSchema merge schemas
+// Deprecated: Use internal/schema.MergeSchema instead.
 func MergeSchema(dst *spec.Schema, src *spec.Schema) *spec.Schema {
 	if len(src.Type) > 0 {
 		dst.Type = src.Type
@@ -316,9 +324,6 @@ func MergeSchema(dst *spec.Schema, src *spec.Schema) *spec.Schema {
 	}
 	if len(src.Enum) > 0 {
 		dst.Enum = src.Enum
-	}
-	if len(src.Extensions) > 0 {
-		dst.Extensions = src.Extensions
 	}
 	if len(src.ExtraProps) > 0 {
 		dst.ExtraProps = src.ExtraProps

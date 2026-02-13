@@ -5,7 +5,7 @@ import (
 	"go/token"
 	"testing"
 
-	"github.com/swaggo/swag"
+	"github.com/swaggo/swag/internal/domain"
 )
 
 func TestNewService(t *testing.T) {
@@ -44,7 +44,7 @@ type User struct {
 		}
 
 		// Act
-		err = svc.CollectAstFile(fset, "github.com/test/pkg", "/path/to/test.go", astFile, swag.ParseAll)
+		err = svc.CollectAstFile(fset, "github.com/test/pkg", "/path/to/test.go", astFile, domain.ParseAll)
 
 		// Assert
 		if err != nil {
@@ -66,7 +66,7 @@ type User struct {
 		astFile, _ := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
 
 		// Act
-		err := svc.CollectAstFile(fset, "", "/path/to/test.go", astFile, swag.ParseAll)
+		err := svc.CollectAstFile(fset, "", "/path/to/test.go", astFile, domain.ParseAll)
 
 		// Assert
 		if err != nil {
@@ -85,8 +85,8 @@ type User struct {
 		astFile, _ := parser.ParseFile(fset, "test.go", src, parser.ParseComments)
 
 		// Act - collect same file twice
-		_ = svc.CollectAstFile(fset, "github.com/test/pkg", "/path/to/test.go", astFile, swag.ParseAll)
-		err := svc.CollectAstFile(fset, "github.com/test/pkg", "/path/to/test.go", astFile, swag.ParseAll)
+		_ = svc.CollectAstFile(fset, "github.com/test/pkg", "/path/to/test.go", astFile, domain.ParseAll)
+		err := svc.CollectAstFile(fset, "github.com/test/pkg", "/path/to/test.go", astFile, domain.ParseAll)
 
 		// Assert
 		if err != nil {
@@ -108,7 +108,7 @@ type User struct {
 }`
 
 		// Act
-		err := svc.ParseFile("github.com/test/pkg", "test.go", src, swag.ParseAll)
+		err := svc.ParseFile("github.com/test/pkg", "test.go", src, domain.ParseAll)
 
 		// Assert
 		if err != nil {
@@ -128,7 +128,7 @@ type User struct {
 ` // missing closing brace
 
 		// Act
-		err := svc.ParseFile("github.com/test/pkg", "test.go", src, swag.ParseAll)
+		err := svc.ParseFile("github.com/test/pkg", "test.go", src, domain.ParseAll)
 
 		// Assert
 		if err == nil {
@@ -148,13 +148,13 @@ func TestService_RangeFiles(t *testing.T) {
 		astFile2, _ := parser.ParseFile(fset, "a.go", "package test", parser.ParseComments)
 		astFile3, _ := parser.ParseFile(fset, "b.go", "package test", parser.ParseComments)
 
-		_ = svc.CollectAstFile(fset, "github.com/test/pkg", "/path/c.go", astFile1, swag.ParseAll)
-		_ = svc.CollectAstFile(fset, "github.com/test/pkg", "/path/a.go", astFile2, swag.ParseAll)
-		_ = svc.CollectAstFile(fset, "github.com/test/pkg", "/path/b.go", astFile3, swag.ParseAll)
+		_ = svc.CollectAstFile(fset, "github.com/test/pkg", "/path/c.go", astFile1, domain.ParseAll)
+		_ = svc.CollectAstFile(fset, "github.com/test/pkg", "/path/a.go", astFile2, domain.ParseAll)
+		_ = svc.CollectAstFile(fset, "github.com/test/pkg", "/path/b.go", astFile3, domain.ParseAll)
 
 		// Act
 		var paths []string
-		err := svc.RangeFiles(func(info *swag.AstFileInfo) error {
+		err := svc.RangeFiles(func(info *domain.AstFileInfo) error {
 			paths = append(paths, info.Path)
 			return nil
 		})
@@ -179,12 +179,12 @@ func TestService_RangeFiles(t *testing.T) {
 		astFile1, _ := parser.ParseFile(fset, "test.go", "package test", parser.ParseComments)
 		astFile2, _ := parser.ParseFile(fset, "vendor.go", "package vendor", parser.ParseComments)
 
-		_ = svc.CollectAstFile(fset, "github.com/test/pkg", "/path/test.go", astFile1, swag.ParseAll)
-		_ = svc.CollectAstFile(fset, "vendor/pkg", "/path/vendor.go", astFile2, swag.ParseAll)
+		_ = svc.CollectAstFile(fset, "github.com/test/pkg", "/path/test.go", astFile1, domain.ParseAll)
+		_ = svc.CollectAstFile(fset, "vendor/pkg", "/path/vendor.go", astFile2, domain.ParseAll)
 
 		// Act
 		var count int
-		err := svc.RangeFiles(func(info *swag.AstFileInfo) error {
+		err := svc.RangeFiles(func(info *domain.AstFileInfo) error {
 			count++
 			return nil
 		})
@@ -213,7 +213,7 @@ const (
 	Inactive Status = 2
 )
 `
-		_ = svc.ParseFile("github.com/test/pkg", "test.go", src, swag.ParseAll)
+		_ = svc.ParseFile("github.com/test/pkg", "test.go", src, domain.ParseAll)
 
 		// Act
 		schemas, err := svc.ParseTypes()
@@ -238,7 +238,7 @@ const (
 type User struct {
 	Name string
 }`
-		_ = svc.ParseFile("github.com/test/pkg", "test.go", src, swag.ParseAll)
+		_ = svc.ParseFile("github.com/test/pkg", "test.go", src, domain.ParseAll)
 
 		// Act
 		_, err := svc.ParseTypes()
@@ -262,7 +262,7 @@ func TestService_FindTypeSpec(t *testing.T) {
 type User struct {
 	Name string
 }`
-		_ = svc.ParseFile("github.com/test/pkg", "test.go", src, swag.ParseAll)
+		_ = svc.ParseFile("github.com/test/pkg", "test.go", src, domain.ParseAll)
 		_, _ = svc.ParseTypes()
 
 		// Act
@@ -296,7 +296,7 @@ type User struct {
 		// Arrange
 		svc := NewService()
 		src := `package test`
-		_ = svc.ParseFile("github.com/test/pkg", "test.go", src, swag.ParseAll)
+		_ = svc.ParseFile("github.com/test/pkg", "test.go", src, domain.ParseAll)
 
 		// Act
 		fset := token.NewFileSet()
@@ -321,7 +321,7 @@ type User struct {
 type Product struct {
 	Title string
 }`
-		_ = svc.ParseFile("github.com/test/pkg", "test.go", src, swag.ParseAll)
+		_ = svc.ParseFile("github.com/test/pkg", "test.go", src, domain.ParseAll)
 		_, _ = svc.ParseTypes()
 
 		// Act
@@ -342,7 +342,7 @@ func TestService_Packages(t *testing.T) {
 type User struct {
 	Name string
 }`
-		_ = svc.ParseFile("github.com/test/pkg", "test.go", src, swag.ParseAll)
+		_ = svc.ParseFile("github.com/test/pkg", "test.go", src, domain.ParseAll)
 
 		// Act
 		pkgs := svc.Packages()
