@@ -2177,7 +2177,8 @@ func TestParseParamStructCodeExample(t *testing.T) {
 	assert.NoError(t, err)
 
 	parser := New()
-	err = parser.parseFile("github.com/swaggo/swag/testdata/param_structs", "testdata/param_structs/structs.go", nil, ParseModels)
+	// Use packages.ParseFile to load just the struct definitions without full API parsing
+	err = parser.packages.ParseFile("github.com/swaggo/swag/testdata/param_structs", "testdata/param_structs/structs.go", nil, ParseModels)
 	assert.NoError(t, err)
 	_, err = parser.packages.ParseTypes()
 	assert.NoError(t, err)

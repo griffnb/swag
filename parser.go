@@ -1,7 +1,6 @@
 package swag
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,9 +18,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/KyleBanks/depth"
 	"github.com/go-openapi/spec"
 	"github.com/swaggo/swag/console"
+	"github.com/swaggo/swag/internal/loader"
 	"github.com/swaggo/swag/model"
 )
 
@@ -74,17 +73,18 @@ const (
 )
 
 // ParseFlag determine what to parse
-type ParseFlag int
+// Deprecated: Use loader.ParseFlag instead
+type ParseFlag = loader.ParseFlag
 
 const (
 	// ParseNone parse nothing
-	ParseNone ParseFlag = 0x00
+	ParseNone = loader.ParseNone
 	// ParseModels parse models
-	ParseModels = 0x01
+	ParseModels = loader.ParseModels
 	// ParseOperations parse operations
-	ParseOperations = 0x02
+	ParseOperations = loader.ParseOperations
 	// ParseAll parse operations and models
-	ParseAll = ParseOperations | ParseModels
+	ParseAll = loader.ParseAll
 )
 
 var (
@@ -113,6 +113,9 @@ var allMethod = map[string]struct{}{
 
 // Parser implements a parser for Go source files.
 type Parser struct {
+	// loader handles loading Go packages and files
+	loader *loader.Service
+
 	// swagger represents the root document object for the API specification
 	swagger *spec.Swagger
 
@@ -132,7 +135,7 @@ type Parser struct {
 	ParseVendor bool
 
 	// ParseDependencies whether swag should be parse outside dependency folder: 0 none, 1 models, 2 operations, 3 all
-	ParseDependency ParseFlag
+	ParseDependency loader.ParseFlag
 
 	// ParseInternal whether swag should parse internal packages
 	ParseInternal bool
@@ -253,6 +256,7 @@ func New(options ...func(*Parser)) *Parser {
 		fieldParserFactory: newTagBaseFieldParser,
 		Overrides:          make(map[string]string),
 		RequiredByDefault:  true, // All fields are required by default unless marked with omitempty
+		parseExtension:     ".go",
 	}
 
 	for _, option := range options {
@@ -260,6 +264,19 @@ func New(options ...func(*Parser)) *Parser {
 	}
 
 	parser.packages.debug = parser.debug
+
+	// Initialize loader service with parser configuration
+	parser.loader = loader.NewService(
+		loader.WithParseVendor(parser.ParseVendor),
+		loader.WithParseInternal(parser.ParseInternal),
+		loader.WithExcludes(parser.excludes),
+		loader.WithPackagePrefix(parser.packagePrefix),
+		loader.WithParseExtension(parser.parseExtension),
+		loader.WithGoList(parser.parseGoList),
+		loader.WithGoPackages(parser.ParseGoPackages),
+		loader.WithParseDependency(parser.ParseDependency),
+		loader.WithDebugger(parser.debug),
+	)
 
 	return parser
 }
@@ -412,72 +429,56 @@ func (parser *Parser) ParseAPIMultiSearchDir(searchDirs []string, mainAPIFile st
 	if err != nil {
 		return err
 	}
+
+	// Load main search directories
 	if parser.ParseGoPackages {
-		if err := parser.loadPackagesAndDeps(searchDirs, absMainAPIFilePath); err != nil {
+		// Use go/packages loader
+		result, err := parser.loader.LoadWithGoPackages(searchDirs, absMainAPIFilePath)
+		if err != nil {
 			return err
 		}
-	} else {
-		for _, searchDir := range searchDirs {
-			console.Logger.Debug("Generate general API Info, search dir:%s", searchDir)
 
-			packageDir, err := getPkgName(searchDir)
-			if err != nil {
-				console.Logger.Debug("warning: failed to get package name in dir: %s, error: %s", searchDir, err.Error())
-			}
-
-			err = parser.getAllGoFileInfo(packageDir, searchDir)
-			if err != nil {
+		// Transfer files to parser.packages
+		for astFile, fileInfo := range result.Files {
+			if err := parser.packages.CollectAstFile(fileInfo.FileSet, fileInfo.PackagePath, fileInfo.Path, astFile, fileInfo.ParseFlag); err != nil {
 				return err
 			}
 		}
-	}
 
-	// Use 'go list' command instead of depth.Resolve()
-	if parser.ParseDependency > 0 && !parser.ParseGoPackages {
-		allDir := append([]string{filepath.Dir(absMainAPIFilePath)}, searchDirs...)
-		if parser.parseGoList {
-			pkgs, err := listPackages(context.Background(), allDir, nil, "-deps")
+		// Add package metadata
+		if len(result.Packages) > 0 {
+			parser.packages.AddPackages(result.Packages)
+		}
+	} else {
+		// Use standard file walking loader
+		for _, searchDir := range searchDirs {
+			console.Logger.Debug("Generate general API Info, search dir:%s", searchDir)
+		}
+
+		result, err := parser.loader.LoadSearchDirs(searchDirs)
+		if err != nil {
+			return err
+		}
+
+		// Transfer files to parser.packages
+		for astFile, fileInfo := range result.Files {
+			if err := parser.packages.CollectAstFile(fileInfo.FileSet, fileInfo.PackagePath, fileInfo.Path, astFile, fileInfo.ParseFlag); err != nil {
+				return err
+			}
+		}
+
+		// Load dependencies if requested
+		if parser.ParseDependency > 0 {
+			allDir := append([]string{filepath.Dir(absMainAPIFilePath)}, searchDirs...)
+			depResult, err := parser.loader.LoadDependencies(allDir, parseDepth)
 			if err != nil {
 				return err
 			}
 
-			length := len(pkgs)
-			for i := 0; i < length; i++ {
-				err := parser.getAllGoFileInfoFromDepsByList(pkgs[i], parser.ParseDependency)
-				if err != nil {
+			// Transfer dependency files to parser.packages
+			for astFile, fileInfo := range depResult.Files {
+				if err := parser.packages.CollectAstFile(fileInfo.FileSet, fileInfo.PackagePath, fileInfo.Path, astFile, fileInfo.ParseFlag); err != nil {
 					return err
-				}
-			}
-		} else {
-			dirImported := make(map[string]struct{}) // for deduplication
-			for _, dir := range allDir {             // ignore search dir (have been parsed)
-				absDir, err := filepath.Abs(dir)
-				if err == nil {
-					dirImported[absDir] = struct{}{}
-				}
-			}
-			for index, dir := range allDir {
-				var t depth.Tree
-				t.ResolveInternal = true
-				t.MaxDepth = parseDepth
-
-				pkgName, err := getPkgName(dir)
-				if err != nil {
-					if index == 0 { // ignore error when load search dir
-						return err
-					}
-					continue
-				}
-
-				err = t.Resolve(pkgName)
-				if err != nil {
-					return fmt.Errorf("pkg %s cannot find all dependencies, %s", pkgName, err)
-				}
-				for i := 0; i < len(t.Root.Deps); i++ {
-					err := parser.getAllGoFileInfoFromDeps(&t.Root.Deps[i], parser.ParseDependency, dirImported)
-					if err != nil {
-						return err
-					}
 				}
 			}
 		}
@@ -1060,21 +1061,24 @@ func (parser *Parser) matchTags(comments []*ast.Comment) (match bool) {
 }
 
 func matchExtension(extensionToMatch string, comments []*ast.Comment) (match bool) {
-	if len(extensionToMatch) != 0 {
-		for _, comment := range comments {
-			commentLine := strings.TrimSpace(strings.TrimLeft(comment.Text, "/"))
-			fields := FieldsByAnySpace(commentLine, 2)
-			if len(fields) > 0 {
-				lowerAttribute := strings.ToLower(fields[0])
+	// If extensionToMatch is empty or ".go" (the default), don't require a custom @x- annotation
+	if len(extensionToMatch) == 0 || extensionToMatch == ".go" {
+		return true
+	}
 
-				if lowerAttribute == fmt.Sprintf("@x-%s", strings.ToLower(extensionToMatch)) {
-					return true
-				}
+	// For custom extensions, look for the @x-{extension} annotation in comments
+	for _, comment := range comments {
+		commentLine := strings.TrimSpace(strings.TrimLeft(comment.Text, "/"))
+		fields := FieldsByAnySpace(commentLine, 2)
+		if len(fields) > 0 {
+			lowerAttribute := strings.ToLower(fields[0])
+
+			if lowerAttribute == fmt.Sprintf("@x-%s", strings.ToLower(extensionToMatch)) {
+				return true
 			}
 		}
-		return false
 	}
-	return true
+	return false
 }
 
 func getFuncDoc(decl any) (*ast.CommentGroup, bool) {
@@ -2275,87 +2279,6 @@ func defineTypeOfExample(schemaType, arrayType, exampleValue string) (interface{
 	}
 
 	return nil, fmt.Errorf("%s is unsupported type in example value %s", schemaType, exampleValue)
-}
-
-// GetAllGoFileInfo gets all Go source files information for given searchDir.
-func (parser *Parser) getAllGoFileInfo(packageDir, searchDir string) error {
-	if parser.skipPackageByPrefix(packageDir) {
-		return nil // ignored by user-defined package path prefixes
-	}
-	return filepath.Walk(searchDir, func(path string, f os.FileInfo, wError error) error {
-		if wError != nil {
-			return fmt.Errorf("failed to access path %q, err: %v\n", path, wError)
-		}
-		err := parser.Skip(path, f)
-		if err != nil {
-			return err
-		}
-
-		if f.IsDir() {
-			return nil
-		}
-
-		relPath, err := filepath.Rel(searchDir, path)
-		if err != nil {
-			return err
-		}
-
-		return parser.parseFile(filepath.ToSlash(filepath.Dir(filepath.Clean(filepath.Join(packageDir, relPath)))), path, nil, ParseAll)
-	})
-}
-
-func (parser *Parser) getAllGoFileInfoFromDeps(pkg *depth.Pkg, parseFlag ParseFlag, dirImported map[string]struct{}) error {
-	ignoreInternal := pkg.Internal && !parser.ParseInternal
-	if ignoreInternal || !pkg.Resolved { // ignored internal and not resolved dependencies
-		return nil
-	}
-
-	if pkg.Raw != nil && parser.skipPackageByPrefix(pkg.Raw.ImportPath) {
-		return nil // ignored by user-defined package path prefixes
-	}
-
-	// Skip cgo
-	if pkg.Raw == nil && pkg.Name == "C" {
-		return nil
-	}
-
-	srcDir := pkg.Raw.Dir
-	if _, ok := dirImported[srcDir]; ok {
-		return nil
-	}
-	dirImported[srcDir] = struct{}{}
-
-	files, err := os.ReadDir(srcDir) // only parsing files in the dir(don't contain sub dir files)
-	if err != nil {
-		return err
-	}
-
-	for _, f := range files {
-		if f.IsDir() {
-			continue
-		}
-
-		path := filepath.Join(srcDir, f.Name())
-		if err := parser.parseFile(pkg.Name, path, nil, parseFlag); err != nil {
-			return err
-		}
-	}
-
-	for i := 0; i < len(pkg.Deps); i++ {
-		if err := parser.getAllGoFileInfoFromDeps(&pkg.Deps[i], parseFlag, dirImported); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (parser *Parser) parseFile(packageDir, path string, src interface{}, flag ParseFlag) error {
-	if strings.HasSuffix(strings.ToLower(path), "_test.go") || filepath.Ext(path) != ".go" {
-		return nil
-	}
-
-	return parser.packages.ParseFile(packageDir, path, src, flag)
 }
 
 func (parser *Parser) checkOperationIDUniqueness() error {
