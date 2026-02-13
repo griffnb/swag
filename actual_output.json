@@ -99,7 +99,10 @@
               "$ref": "#/definitions/response.ErrorResponse"
             }
           }
-        }
+        },
+        "x-function": "authOrganization",
+        "x-line": 116,
+        "x-path": "/Users/griffnb/projects/swag/.worktrees/feature-cleanup-2-8bb24355-6f27-48b2-82ec-465f24ae63bc/testdata/core_models/api/api.go"
       }
     },
     "/admin/accounts": {
@@ -163,7 +166,10 @@
               "$ref": "#/definitions/response.ErrorResponse"
             }
           }
-        }
+        },
+        "x-function": "publicIndex",
+        "x-line": 94,
+        "x-path": "/Users/griffnb/projects/swag/.worktrees/feature-cleanup-2-8bb24355-6f27-48b2-82ec-465f24ae63bc/testdata/core_models/api/api.go"
       }
     },
     "/admin/testUser": {
@@ -227,7 +233,10 @@
               "$ref": "#/definitions/response.ErrorResponse"
             }
           }
-        }
+        },
+        "x-function": "CreateTestAccount",
+        "x-line": 28,
+        "x-path": "/Users/griffnb/projects/swag/.worktrees/feature-cleanup-2-8bb24355-6f27-48b2-82ec-465f24ae63bc/testdata/core_models/api/api.go"
       }
     },
     "/api/account/{id}": {
@@ -277,7 +286,10 @@
               "$ref": "#/definitions/response.ErrorResponse"
             }
           }
-        }
+        },
+        "x-function": "InternalAPIAccount",
+        "x-line": 47,
+        "x-path": "/Users/griffnb/projects/swag/.worktrees/feature-cleanup-2-8bb24355-6f27-48b2-82ec-465f24ae63bc/testdata/core_models/api/api.go"
       }
     },
     "/auth/me": {
@@ -318,7 +330,10 @@
               "$ref": "#/definitions/response.ErrorResponse"
             }
           }
-        }
+        },
+        "x-function": "Me",
+        "x-line": 61,
+        "x-path": "/Users/griffnb/projects/swag/.worktrees/feature-cleanup-2-8bb24355-6f27-48b2-82ec-465f24ae63bc/testdata/core_models/api/api.go"
       }
     }
   },
