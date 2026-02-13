@@ -17,6 +17,7 @@ Swag converts Go annotations to Swagger Documentation 2.0. We've created a varie
 
 ## Contents
  - [Getting started](#getting-started)
+ - [Architecture](#architecture)
  - [Supported Web Frameworks](#supported-web-frameworks)
  - [How to use it with Gin](#how-to-use-it-with-gin)
  - [The swag formatter](#the-swag-formatter)
@@ -46,6 +47,19 @@ Swag converts Go annotations to Swagger Documentation 2.0. We've created a varie
 	- [Generate only specific docs file types](#generate-only-specific-docs-file-types)
     - [How to use Go generic types](#how-to-use-generics)
 - [About the Project](#about-the-project)
+
+## Architecture
+
+Swag uses a modular, service-based architecture for parsing Go code and generating Swagger documentation:
+
+- **Loader Service**: Discovers and loads Go packages
+- **Registry Service**: Manages type and package registries
+- **Schema Builder**: Builds OpenAPI schemas from Go types
+- **Parser Services**: Parse annotations (base info, structs, routes)
+
+For detailed architecture documentation, see [ARCHITECTURE.md](ARCHITECTURE.md).
+
+For information about the refactoring process, see [REFACTORING_STATUS.md](REFACTORING_STATUS.md).
 
 ## Getting started
 
