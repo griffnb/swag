@@ -22142,6 +22142,72 @@
         "x-path": "/Users/griffnb/projects/Crowdshield/atlas-go/internal/controllers/distribution_payments/x_gen_admin.go"
       }
     },
+    "/admin/distribution_payment/{id}/transfer": {
+      "post": {
+        "description": "Create Stripe Transfer",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "DistributionPayment",
+          "AdminOnly"
+        ],
+        "summary": "Create Stripe Transfer",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "DistributionPayment ID",
+            "name": "id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/response.SuccessResponse"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/definitions/distribution_payment.DistributionPaymentJoined"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/response.ErrorResponse"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "$ref": "#/definitions/response.ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/response.ErrorResponse"
+            }
+          }
+        },
+        "x-function": "adminCreateTransfer",
+        "x-line": 31,
+        "x-path": "/Users/griffnb/projects/Crowdshield/atlas-go/internal/controllers/distribution_payments/admin.go"
+      }
+    },
     "/admin/distribution_payment_info": {
       "get": {
         "description": "List DistributionPaymentInfo",
@@ -52232,74 +52298,6 @@
         "x-path": "/Users/griffnb/projects/Crowdshield/atlas-go/internal/controllers/distribution_payment_infos/x_gen_auth.go"
       }
     },
-    "/distribution_payment_info/": {
-      "post": {
-        "description": "Create DistributionPaymentInfo",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "tags": [
-          "DistributionPaymentInfo",
-          "CRUD"
-        ],
-        "summary": "Create DistributionPaymentInfo",
-        "parameters": [
-          {
-            "description": "DistributionPaymentInfo Data",
-            "name": "data",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/distribution_payment_info.DistributionPaymentInfoPublic"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/definitions/response.SuccessResponse"
-                },
-                {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "$ref": "#/definitions/distribution_payment_info.DistributionPaymentInfoPublic"
-                    }
-                  }
-                }
-              ]
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "schema": {
-              "$ref": "#/definitions/response.ErrorResponse"
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "schema": {
-              "$ref": "#/definitions/response.ErrorResponse"
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "schema": {
-              "$ref": "#/definitions/response.ErrorResponse"
-            }
-          }
-        },
-        "x-function": "authCreate",
-        "x-line": 109,
-        "x-path": "/Users/griffnb/projects/Crowdshield/atlas-go/internal/controllers/distribution_payment_infos/x_gen_auth.go"
-      }
-    },
     "/distribution_payment_info/link": {
       "post": {
         "description": "Creates a Stripe Connect account link for onboarding new users or returns a dashboard link for already onboarded users. Automatically creates a distribution payment info record if one doesn't exist.",
@@ -52352,7 +52350,7 @@
           }
         },
         "x-function": "authLink",
-        "x-line": 30,
+        "x-line": 29,
         "x-path": "/Users/griffnb/projects/Crowdshield/atlas-go/internal/controllers/distribution_payment_infos/auth.go"
       }
     },
@@ -52408,7 +52406,63 @@
           }
         },
         "x-function": "authSession",
-        "x-line": 91,
+        "x-line": 90,
+        "x-path": "/Users/griffnb/projects/Crowdshield/atlas-go/internal/controllers/distribution_payment_infos/auth.go"
+      }
+    },
+    "/distribution_payment_info/verify": {
+      "post": {
+        "description": "Verifies the onboarding status of a Stripe account. Used to check if the account is fully onboarded and ready for payouts and other operations.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "DistributionPaymentInfo"
+        ],
+        "summary": "Verify Stripe Onboarding Status",
+        "responses": {
+          "200": {
+            "description": "Stripe Onboarding Status",
+            "schema": {
+              "allOf": [
+                {
+                  "$ref": "#/definitions/response.SuccessResponse"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/response.ErrorResponse"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "$ref": "#/definitions/response.ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/response.ErrorResponse"
+            }
+          }
+        },
+        "x-function": "authVerifyOnboarding",
+        "x-line": 140,
         "x-path": "/Users/griffnb/projects/Crowdshield/atlas-go/internal/controllers/distribution_payment_infos/auth.go"
       }
     },
@@ -52475,79 +52529,6 @@
         },
         "x-function": "authGet",
         "x-line": 78,
-        "x-path": "/Users/griffnb/projects/Crowdshield/atlas-go/internal/controllers/distribution_payment_infos/x_gen_auth.go"
-      },
-      "put": {
-        "description": "Update DistributionPaymentInfo",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "tags": [
-          "DistributionPaymentInfo",
-          "CRUD"
-        ],
-        "summary": "Update DistributionPaymentInfo",
-        "parameters": [
-          {
-            "type": "string",
-            "description": "DistributionPaymentInfo ID",
-            "name": "id",
-            "in": "path",
-            "required": true
-          },
-          {
-            "description": "DistributionPaymentInfo Data",
-            "name": "data",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/distribution_payment_info.DistributionPaymentInfoPublic"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "schema": {
-              "allOf": [
-                {
-                  "$ref": "#/definitions/response.SuccessResponse"
-                },
-                {
-                  "type": "object",
-                  "properties": {
-                    "data": {
-                      "$ref": "#/definitions/distribution_payment_info.DistributionPaymentInfoPublic"
-                    }
-                  }
-                }
-              ]
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "schema": {
-              "$ref": "#/definitions/response.ErrorResponse"
-            }
-          },
-          "404": {
-            "description": "Not Found",
-            "schema": {
-              "$ref": "#/definitions/response.ErrorResponse"
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "schema": {
-              "$ref": "#/definitions/response.ErrorResponse"
-            }
-          }
-        },
-        "x-function": "authUpdate",
-        "x-line": 148,
         "x-path": "/Users/griffnb/projects/Crowdshield/atlas-go/internal/controllers/distribution_payment_infos/x_gen_auth.go"
       }
     },
