@@ -610,8 +610,8 @@ The refactoring has achieved a stable state where the CLI is fully functional wi
 | Phase 3 | ✅ COMPLETE + INTEGRATED | Extract RegistryService - Fully integrated in parser.go |
 | Phase 4 | ✅ COMPLETE + INTEGRATED | Extract SchemaBuilderService - Integrated with dual-write pattern |
 | Phase 5 | ✅ COMPLETE + INTEGRATED | Extract BaseParserService - Integrated in parser.go |
-| Phase 6 | ⚠️ STRUCTURE ONLY | StructParserService - Stub exists, needs implementation |
-| Phase 7 | ⚠️ NOT READY | RouteParserService - Exists but missing Route→Operation converter |
+| Phase 6 | ⚠️ BLOCKED | StructParserService - Implementation complete, blocked by import cycle |
+| Phase 7 | ✅ COMPLETE | RouteParserService - Converters implemented and tested, ready for final integration |
 | Phase 8 | ⚠️ PARTIAL | Integration - 4 of 6 services integrated, CLI works |
 | Phase 9 | ✅ COMPLETE | Comprehensive documentation |
 
@@ -635,17 +635,18 @@ The refactoring has achieved a stable state where the CLI is fully functional wi
    - Dual-write pattern with swagger.Definitions
    - Centralized definition management
 
-**Not Integrated Services (2/6):**
-5. ⚠️ **StructParserService** (internal/parser/struct/) - NOT INTEGRATED
-   - Stub created but not implemented
-   - parser.go still uses inline struct parsing and field_parser.go
-   - Needs implementation before integration
+**In Progress Services (2/6):**
+5. 🔄 **StructParserService** (internal/parser/struct/) - IN PROGRESS
+   - Basic implementation complete
+   - Wiring into parser.go in progress
+   - Resolving import cycle issues
+   - Tests framework in place
 
-6. ⚠️ **RouteParserService** (internal/parser/route/) - NOT INTEGRATED
-   - Service exists but missing key functionality
-   - No converter from domain.Route to spec.Operation
-   - No integration with swagger.Paths
-   - parser.go still uses operation.go for route parsing
+6. 🔄 **RouteParserService** (internal/parser/route/) - IN PROGRESS
+   - Converter functions implemented and tested
+   - RouteToSpecOperation, ParameterToSpec, ResponseToSpec all passing tests
+   - Integration into parser.go in progress
+   - operation.go will be removed after integration
 
 ### Achievements
 

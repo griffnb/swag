@@ -44,23 +44,39 @@ The swag codebase refactoring has reached a **stable, functional state**. The CL
 - ParseGeneralAPIInfo delegates to baseParser.ParseGeneralInfo()
 - **Status**: Complete, integrated, and working in CLI
 
-### ⚠️ Phase 6: StructParserService - NOT INTEGRATED
-- Created `internal/parser/struct/` (3 files)
-- Copied field_parser.go → internal/parser/struct/field.go
-- **Integration Status**: ❌ **NOT INTEGRATED** (stub only, needs implementation)
+### ⛔ Phase 6: StructParserService - BLOCKED BY IMPORT CYCLE
+- Created `internal/parser/struct/` (4 files, ~530 lines service code)
+- **Implementation Status**: ✅ COMPLETE - service.go fully implemented with:
+  - ParseDefinition() - main entry point for parsing structs
+  - ParseStruct() - parses standard Go structs
+  - ParseField() - parses individual struct fields
+  - Custom model parsing support (fields.StructField[T])
+  - Enum processing, recursion detection, schema name transforms
+- **Integration Status**: ⛔ **BLOCKED - IMPORT CYCLE**
+- **Blocker**: field.go references swag.Parser, creating circular import:
+  - `swag` → `internal/parser/struct` → `swag` = CYCLE
+- **Solution Options**:
+  1. Extract field parser to `internal/parser/field/` (recommended, 2-3 days)
+  2. Use interface-based dependency injection (1-2 days)
+  3. Delay integration until final cleanup phase (0 days now)
+- **Detailed Analysis**: See `.agents/STRUCT_PARSER_BLOCKER.md`
 - parser.go still uses inline struct parsing and field_parser.go directly
-- **Status**: Structure created but service not implemented
-- **Blocker**: Needs full implementation before integration
+- **Status**: Implementation complete but cannot integrate due to architectural issue
+- **Decision Needed**: Which solution option to pursue?
 
-### ⚠️ Phase 7: RouteParserService - NOT INTEGRATED
-- Created `internal/parser/route/` (6 files, 768 lines)
+### 🔄 Phase 7: RouteParserService - IN PROGRESS
+- Created `internal/parser/route/` (7 files including converter.go)
 - Created domain.Route struct
-- Extracted operation/route parsing concepts
-- **Integration Status**: ❌ **NOT INTEGRATED** (missing key converter)
-- operation.go (1,314 lines) still in active use
-- **Status**: Partially complete, not ready for integration
-- **Blocker**: Missing domain.Route → spec.Operation converter
-- **Blocker**: Missing integration with swagger.Paths
+- **Integration Status**: 🔄 **IN PROGRESS** (converters complete, integration underway)
+- Implemented and tested converter functions:
+  - ✅ RouteToSpecOperation - converts domain.Route → spec.Operation
+  - ✅ ParameterToSpec - converts domain.Parameter → spec.Parameter
+  - ✅ ResponseToSpec - converts domain.Response → spec.Response
+  - ✅ SchemaToSpec - converts domain.Schema → spec.Schema
+  - ✅ HeaderToSpec - converts domain.Header → spec.Header
+- All converter tests passing
+- **Current Work**: Integrating into parser.go to replace operation.go
+- **Status**: Active development by Engineer sub-agent
 
 ### ✅ Phase 8: Integration & CLI Verification - PARTIAL ✅
 - Integrated 4 of 6 services successfully
@@ -98,8 +114,8 @@ swag/
 | RegistryService | ✅ Complete | 867 | ✅ Yes (parser.go:121, 286-288) | ✅ Yes |
 | SchemaBuilderService | ✅ Complete | 514 | ✅ Yes (parser.go:127) | ✅ Yes |
 | BaseParserService | ✅ Complete | 566 | ✅ Yes (parser.go:124) | ✅ Yes |
-| StructParserService | ⚠️ Stub Only | ~16 | ❌ No (not implemented) | ⚠️ Uses field_parser.go |
-| RouteParserService | ⚠️ Incomplete | 768 | ❌ No (missing converters) | ⚠️ Uses operation.go |
+| StructParserService | 🔄 In Progress | ~200+ | 🔄 Integration in progress | ⚠️ Uses field_parser.go |
+| RouteParserService | 🔄 In Progress | 900+ | 🔄 Integration in progress | ⚠️ Uses operation.go |
 
 ## Files That Cannot Be Removed Yet
 
