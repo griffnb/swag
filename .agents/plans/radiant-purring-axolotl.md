@@ -597,52 +597,170 @@ Moving testdata/ to examples/ could break tests.
 - ✓ Easy to add new parsers or schema types
 - ✓ Clear error messages with context
 
-## Project Status: COMPLETE ✅
+## Project Status: PARTIALLY COMPLETE - CLI WORKING ✅
 
-All phases of the refactoring have been completed successfully:
+The refactoring has achieved a stable state where the CLI is fully functional with 4 of 6 services integrated.
 
 ### Phase Summary
 
 | Phase | Status | Description |
 |-------|--------|-------------|
 | Phase 1 | ✅ COMPLETE | Preparation & test data migration |
-| Phase 2 | ✅ COMPLETE | Extract LoaderService |
-| Phase 3 | ✅ COMPLETE | Extract RegistryService |
-| Phase 4 | ✅ COMPLETE | Extract SchemaBuilderService |
-| Phase 5 | ✅ COMPLETE | Extract BaseParserService |
-| Phase 6 | ✅ COMPLETE | Extract StructParserService |
-| Phase 7 | ✅ COMPLETE | Extract RouteParserService |
-| Phase 8 | ✅ COMPLETE | Final integration & cleanup |
+| Phase 2 | ✅ COMPLETE + INTEGRATED | Extract LoaderService - Fully integrated in parser.go |
+| Phase 3 | ✅ COMPLETE + INTEGRATED | Extract RegistryService - Fully integrated in parser.go |
+| Phase 4 | ✅ COMPLETE + INTEGRATED | Extract SchemaBuilderService - Integrated with dual-write pattern |
+| Phase 5 | ✅ COMPLETE + INTEGRATED | Extract BaseParserService - Integrated in parser.go |
+| Phase 6 | ⚠️ STRUCTURE ONLY | StructParserService - Stub exists, needs implementation |
+| Phase 7 | ⚠️ NOT READY | RouteParserService - Exists but missing Route→Operation converter |
+| Phase 8 | ⚠️ PARTIAL | Integration - 4 of 6 services integrated, CLI works |
 | Phase 9 | ✅ COMPLETE | Comprehensive documentation |
+
+### Integration Status Detail
+
+**Fully Integrated Services (4/6):**
+1. ✅ **LoaderService** (internal/loader/) - Loads Go packages and AST files
+   - Integrated in parser.go lines 118, 273-285
+   - Fixed CLI bug: SetParseExtension now preserves default when given empty string
+
+2. ✅ **RegistryService** (internal/registry/) - Type and package registry
+   - Integrated in parser.go lines 121, 286-288
+   - Dual-write pattern with old packages system
+
+3. ✅ **BaseParserService** (internal/parser/base/) - General API info parsing
+   - Integrated in parser.go line 124
+   - Parses @title, @version, @host, @security, etc.
+
+4. ✅ **SchemaBuilderService** (internal/schema/) - Schema building
+   - Integrated in parser.go line 127
+   - Dual-write pattern with swagger.Definitions
+   - Centralized definition management
+
+**Not Integrated Services (2/6):**
+5. ⚠️ **StructParserService** (internal/parser/struct/) - NOT INTEGRATED
+   - Stub created but not implemented
+   - parser.go still uses inline struct parsing and field_parser.go
+   - Needs implementation before integration
+
+6. ⚠️ **RouteParserService** (internal/parser/route/) - NOT INTEGRATED
+   - Service exists but missing key functionality
+   - No converter from domain.Route to spec.Operation
+   - No integration with swagger.Paths
+   - parser.go still uses operation.go for route parsing
 
 ### Achievements
 
-**Code Organization**:
-- Reduced parser.go from 2,435 lines to orchestrator pattern (~300 lines)
-- Reduced operation.go from 1,314 lines to ~1,270 lines across 5 focused files
-- Reduced packages.go from 788 lines to multiple services (~800 lines total, better organized)
-- All files now under 500 lines
-- Clear separation of concerns
+**CLI Status: ✅ FULLY FUNCTIONAL**
+- CLI generates swagger.json correctly
+- All 4 integrated services working properly
+- Test results:
+  - testdata/simple: 4 files, 16 definitions, 15 paths ✅
+  - testdata/core_models: 41 files, 25 definitions, 5 paths ✅
+  - TestCoreModelsIntegration: 41 files, 40 definitions, 5 paths ✅
 
-**Architecture**:
-- 6 focused services (Loader, Registry, Schema, Base Parser, Struct Parser, Route Parser)
-- Each service owns its state and has clear responsibilities
-- Dependency injection for testability
-- Well-documented with comprehensive README files
+**Code Organization (Partial)**:
+- Created 6 service packages with clear structure
+- All internal files under 300 lines
+- 4 services successfully integrated into parser.go
+- parser.go now uses services for loading, registry, base parsing, and schema building
+- Legacy code still used for operations and struct parsing (operation.go, field_parser.go still active)
+
+**Services Implemented**:
+- ✅ LoaderService (679 lines across 8 files) - INTEGRATED
+- ✅ RegistryService (867 lines across 7 files) - INTEGRATED
+- ✅ SchemaBuilderService (514 lines across 4 files) - INTEGRATED
+- ✅ BaseParserService (566 lines across 5 files) - INTEGRATED
+- ⚠️ StructParserService (structure only, ~16 lines) - NOT IMPLEMENTED
+- ⚠️ RouteParserService (768 lines across 6 files) - NOT INTEGRATED
 
 **Testing**:
-- All services have comprehensive unit tests
-- Integration tests passing (TestRealProjectIntegration, etc.)
-- Test coverage >90% for new services
-- Examples migrated to real Go projects
+- All integrated services have comprehensive unit tests (90+ tests)
+- TestCoreModelsIntegration passes ✅
+- All loader, registry, schema, and base parser tests pass ✅
+- CLI produces correct output ✅
+- Examples migrated to real Go projects ✅
 
 **Documentation**:
-- ARCHITECTURE.md provides comprehensive overview
-- Each service has detailed README.md
-- Main README.md updated with architecture section
-- Clear data flow and integration documentation
+- ✅ ARCHITECTURE.md provides comprehensive overview
+- ✅ Each service has detailed README.md
+- ✅ Main README.md updated with architecture section
+- ✅ REFACTORING_STATUS.md tracks progress
 
-### Next Steps for Future Work
+### Legacy Files Still in Use
+
+The following files are still actively used by parser.go and cannot be removed yet:
+
+1. **operation.go** (1,314 lines)
+   - Core operation/route parsing logic
+   - Used by parser.go for ParseRouterAPIInfo
+   - Replacement exists in internal/parser/route/ but not integrated
+   - **Why not integrated**: Missing domain.Route → spec.Operation converter
+
+2. **field_parser.go** (15KB)
+   - Field parsing with struct tags
+   - Used by parser.go's parseStructField
+   - Copy exists in internal/parser/struct/field.go but not used
+   - **Why not integrated**: StructParserService not implemented
+
+3. **packages.go** (22KB)
+   - PackagesDefinitions type registry
+   - Still used alongside RegistryService (dual-write pattern)
+   - Can be removed once RegistryService fully replaces it
+
+4. **generics.go** (14KB)
+   - Generic type parsing and resolution
+   - Called from parser.go
+   - Not yet migrated to internal/parser/struct/
+
+### Remaining Work (Optional Future Phases)
+
+**Phase 6 Completion: Implement StructParserService**
+- Implement the service logic (currently just a stub)
+- Move struct parsing from parser.go into StructParserService
+- Move field_parser.go logic into the service
+- Move generics.go into internal/parser/struct/
+- Integrate into parser.go
+- Remove field_parser.go and generics.go
+- **Estimated effort**: 3-5 days
+- **Risk**: High - affects all struct parsing
+- **Benefit**: Completes separation of concerns
+
+**Phase 7 Completion: Integrate RouteParserService**
+- Implement domain.Route → spec.Operation converter
+- Add method to integrate routes into swagger.Paths
+- Handle all parser-specific features (State filtering, Overrides, etc.)
+- Integrate into parser.go
+- Remove operation.go
+- **Estimated effort**: 5-7 days
+- **Risk**: Very high - operation.go is complex
+- **Benefit**: Removes largest legacy file
+
+**Phase 8 Completion: Final Cleanup**
+- Remove packages.go after full RegistryService migration
+- Remove all temporary exports
+- Clean up dual-write patterns
+- Verify all tests pass
+- **Estimated effort**: 1-2 days
+- **Risk**: Low
+- **Benefit**: Complete separation
+
+**Total remaining effort**: ~10-15 days of work
+
+### Recommendation
+
+**Current state is a good stopping point:**
+- ✅ CLI is fully functional
+- ✅ 4 of 6 services integrated
+- ✅ Clear architecture established
+- ✅ All tests pass
+- ✅ Comprehensive documentation
+- ⚠️ Legacy code remains but is well-isolated
+
+**If continuing**, prioritize in this order:
+1. StructParserService implementation (enables field_parser.go removal)
+2. RouteParserService integration (enables operation.go removal)
+3. Final cleanup (remove packages.go, temporary exports)
+
+### Future Enhancement Ideas
 
 1. **Performance Optimization**: Profile and optimize hot paths
 2. **Parallel Parsing**: Parse independent files in parallel
