@@ -207,6 +207,9 @@ func (g *Gen) Build(config *Config) error {
 
 	p := swag.New(
 		swag.SetParseDependency(config.ParseDependency),
+		swag.SetParseVendor(config.ParseVendor),
+		swag.SetParseInternal(config.ParseInternal),
+		swag.SetParseGoPackages(config.ParseGoPackages),
 		swag.SetUseStructName(config.UseStructNames),
 		swag.SetMarkdownFileDirectory(config.MarkdownFilesDir),
 		swag.SetDebugger(config.Debugger),
@@ -222,12 +225,9 @@ func (g *Gen) Build(config *Config) error {
 	)
 
 	p.PropNamingStrategy = config.PropNamingStrategy
-	p.ParseVendor = config.ParseVendor
-	p.ParseInternal = config.ParseInternal
 	p.RequiredByDefault = config.RequiredByDefault
 	p.HostState = config.State
 	p.ParseFuncBody = config.ParseFuncBody
-	p.ParseGoPackages = config.ParseGoPackages
 
 	if err := p.ParseAPIMultiSearchDir(searchDirs, config.MainAPIFile, config.ParseDepth); err != nil {
 		return err

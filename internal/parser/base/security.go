@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/go-openapi/spec"
-	"github.com/swaggo/swag"
 )
 
 func (s *Service) parseSecurityDefinition(context string, lines []string, index *int) (*spec.SecurityScheme, error) {
@@ -19,7 +18,7 @@ func (s *Service) parseSecurityDefinition(context string, lines []string, index 
 
 	var search []string
 
-	attribute := strings.ToLower(swag.FieldsByAnySpace(lines[*index], 2)[0])
+	attribute := strings.ToLower(FieldsByAnySpace(lines[*index], 2)[0])
 	switch attribute {
 	case "@securitydefinitions.basic":
 		return spec.BasicAuth(), nil
@@ -46,7 +45,7 @@ loopline:
 			continue
 		}
 
-		fields := swag.FieldsByAnySpace(v, 2)
+		fields := FieldsByAnySpace(v, 2)
 		securityAttr := strings.ToLower(fields[0])
 		var value string
 		if len(fields) > 1 {

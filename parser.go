@@ -1,7 +1,6 @@
 package swag
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"go/ast"
@@ -21,7 +20,9 @@ import (
 	"github.com/go-openapi/spec"
 	"github.com/swaggo/swag/console"
 	"github.com/swaggo/swag/internal/loader"
+	"github.com/swaggo/swag/internal/parser/base"
 	"github.com/swaggo/swag/internal/registry"
+	"github.com/swaggo/swag/internal/schema"
 	"github.com/swaggo/swag/model"
 )
 
@@ -119,6 +120,12 @@ type Parser struct {
 
 	// registry provides centralized type and package registry (new system)
 	registry *registry.Service
+
+	// baseParser handles parsing of general API information
+	baseParser *base.Service
+
+	// schemaBuilder manages OpenAPI schema definitions
+	schemaBuilder *schema.BuilderService
 
 	// swagger represents the root document object for the API specification
 	swagger *spec.Swagger
@@ -287,6 +294,14 @@ func New(options ...func(*Parser)) *Parser {
 	parser.registry.SetParseDependency(parser.ParseDependency)
 	parser.registry.SetDebugger(parser.debug)
 
+	// Initialize base parser service for general API info
+	parser.baseParser = base.NewService(parser.swagger)
+	parser.baseParser.SetMarkdownFileDir(parser.markdownFileDir)
+	parser.baseParser.SetDebugger(parser.debug)
+
+	// Initialize schema builder service for definition management
+	parser.schemaBuilder = schema.NewBuilder()
+
 	return parser
 }
 
@@ -297,6 +312,27 @@ func SetParseDependency(parseDependency int) func(*Parser) {
 		if p.packages != nil {
 			p.packages.parseDependency = p.ParseDependency
 		}
+	}
+}
+
+// SetParseVendor sets whether to parse go files in vendor folder.
+func SetParseVendor(parseVendor bool) func(*Parser) {
+	return func(p *Parser) {
+		p.ParseVendor = parseVendor
+	}
+}
+
+// SetParseInternal sets whether to parse go files in internal packages.
+func SetParseInternal(parseInternal bool) func(*Parser) {
+	return func(p *Parser) {
+		p.ParseInternal = parseInternal
+	}
+}
+
+// SetParseGoPackages sets whether to use go/packages for parsing.
+func SetParseGoPackages(parseGoPackages bool) func(*Parser) {
+	return func(p *Parser) {
+		p.ParseGoPackages = parseGoPackages
 	}
 }
 
@@ -363,7 +399,10 @@ func SetTags(include string) func(*Parser) {
 // SetParseExtension parses only those operations which match given extension
 func SetParseExtension(parseExtension string) func(*Parser) {
 	return func(p *Parser) {
-		p.parseExtension = parseExtension
+		// Only override if non-empty (preserve default ".go" if not specified)
+		if parseExtension != "" {
+			p.parseExtension = parseExtension
+		}
 	}
 }
 
@@ -535,6 +574,9 @@ func (parser *Parser) ParseAPIMultiSearchDir(searchDirs []string, mainAPIFile st
 		return err
 	}
 
+	// Sync schema builder definitions back to swagger.Definitions
+	parser.syncDefinitions()
+
 	return parser.checkOperationIDUniqueness()
 }
 
@@ -573,12 +615,17 @@ func (parser *Parser) ParseGeneralAPIInfo(mainAPIFile string) error {
 
 	parser.swagger.Swagger = "2.0"
 
+	// Update markdown file dir in case it was set after initialization
+	parser.baseParser.SetMarkdownFileDir(parser.markdownFileDir)
+
 	for _, comment := range fileTree.Comments {
 		comments := strings.Split(comment.Text(), "\n")
 		if !isGeneralAPIComment(comments) {
 			continue
 		}
 
+		// Use parseGeneralAPIInfo which handles parser-specific annotations
+		// like @hoststate and @query.collection.format
 		err = parseGeneralAPIInfo(parser, comments)
 		if err != nil {
 			return err
@@ -589,9 +636,13 @@ func (parser *Parser) ParseGeneralAPIInfo(mainAPIFile string) error {
 }
 
 func parseGeneralAPIInfo(parser *Parser, comments []string) error {
-	previousAttribute := ""
-	var tag *spec.Tag
-	// parsing classic meta data model
+	// First, let base parser handle standard OpenAPI annotations
+	err := parser.baseParser.ParseGeneralInfo(comments)
+	if err != nil {
+		return err
+	}
+
+	// Handle parser-specific annotations that aren't in base parser
 	for line := 0; line < len(comments); line++ {
 		commentLine := comments[line]
 		commentLine = strings.TrimSpace(commentLine)
@@ -607,26 +658,8 @@ func parseGeneralAPIInfo(parser *Parser, comments []string) error {
 		}
 
 		switch attr := strings.ToLower(attribute); attr {
-		case versionAttr, titleAttr, tosAttr, licNameAttr, licURLAttr, conNameAttr, conURLAttr, conEmailAttr:
-			setSwaggerInfo(parser.swagger, attr, value)
-		case descriptionAttr:
-			if previousAttribute == attribute {
-				parser.swagger.Info.Description = AppendDescription(parser.swagger.Info.Description, value)
-				continue
-			}
-
-			setSwaggerInfo(parser.swagger, attr, value)
-		case descriptionMarkdownAttr:
-			commentInfo, err := getMarkdownForTag("api", parser.markdownFileDir)
-			if err != nil {
-				return err
-			}
-
-			setSwaggerInfo(parser.swagger, descriptionAttr, string(commentInfo))
-
-		case "@host":
-			parser.swagger.Host = value
 		case "@hoststate":
+			// Parser-specific: conditional host setting
 			fields = FieldsByAnySpace(commentLine, 3)
 			if len(fields) != 3 {
 				return fmt.Errorf("%s needs 3 arguments", attribute)
@@ -634,142 +667,20 @@ func parseGeneralAPIInfo(parser *Parser, comments []string) error {
 			if parser.HostState == fields[1] {
 				parser.swagger.Host = fields[2]
 			}
-		case "@basepath":
-			parser.swagger.BasePath = value
-
-		case acceptAttr:
-			err := parser.ParseAcceptComment(value)
-			if err != nil {
-				return err
-			}
-		case produceAttr:
-			err := parser.ParseProduceComment(value)
-			if err != nil {
-				return err
-			}
-		case "@schemes":
-			parser.swagger.Schemes = strings.Split(value, " ")
-		case "@tag.name":
-			if parser.matchTag(value) {
-				parser.swagger.Tags = append(parser.swagger.Tags, spec.Tag{
-					TagProps: spec.TagProps{
-						Name: value,
-					},
-				})
-				tag = &parser.swagger.Tags[len(parser.swagger.Tags)-1]
-			} else {
-				tag = nil
-			}
-		case "@tag.description":
-			if tag != nil {
-				tag.TagProps.Description = value
-			}
-		case "@tag.description.markdown":
-			if tag != nil {
-				commentInfo, err := getMarkdownForTag(tag.TagProps.Name, parser.markdownFileDir)
-				if err != nil {
-					return err
-				}
-
-				tag.TagProps.Description = string(commentInfo)
-			}
-		case "@tag.docs.url":
-			if tag != nil {
-				tag.TagProps.ExternalDocs = &spec.ExternalDocumentation{
-					URL: value,
-				}
-			}
-		case "@tag.docs.description":
-			if tag != nil {
-				if tag.TagProps.ExternalDocs == nil {
-					return fmt.Errorf("%s needs to come after a @tags.docs.url", attribute)
-				}
-
-				tag.TagProps.ExternalDocs.Description = value
-			}
-		case secBasicAttr, secAPIKeyAttr, secApplicationAttr, secImplicitAttr, secPasswordAttr, secAccessCodeAttr:
-			scheme, err := parseSecAttributes(attribute, comments, &line)
-			if err != nil {
-				return err
-			}
-
-			parser.swagger.SecurityDefinitions[value] = scheme
-
-		case securityAttr:
-			parser.swagger.Security = append(parser.swagger.Security, parseSecurity(value))
 
 		case "@query.collection.format":
+			// Parser-specific: query collection format configuration
 			parser.collectionFormatInQuery = TransToValidCollectionFormat(value)
 
-		case extDocsDescAttr, extDocsURLAttr:
-			if parser.swagger.ExternalDocs == nil {
-				parser.swagger.ExternalDocs = new(spec.ExternalDocumentation)
-			}
-			switch attr {
-			case extDocsDescAttr:
-				parser.swagger.ExternalDocs.Description = value
-			case extDocsURLAttr:
-				parser.swagger.ExternalDocs.URL = value
-			}
-
-		default:
-			if strings.HasPrefix(attribute, "@x-") {
-				extensionName := attribute[1:]
-
-				extExistsInSecurityDef := false
-				// for each security definition
-				for _, v := range parser.swagger.SecurityDefinitions {
-					// check if extension exists
-					_, extExistsInSecurityDef = v.VendorExtensible.Extensions.GetString(extensionName)
-					// if it exists in at least one, then we stop iterating
-					if extExistsInSecurityDef {
-						break
-					}
+		case "@tag.name":
+			// Override base parser: add tag filtering
+			if !parser.matchTag(value) {
+				// Skip this tag - remove it if it was added by base parser
+				if len(parser.swagger.Tags) > 0 && parser.swagger.Tags[len(parser.swagger.Tags)-1].Name == value {
+					parser.swagger.Tags = parser.swagger.Tags[:len(parser.swagger.Tags)-1]
 				}
-
-				// if it is present on security def, don't add it again
-				if extExistsInSecurityDef {
-					break
-				}
-
-				if len(value) == 0 {
-					return fmt.Errorf("annotation %s need a value", attribute)
-				}
-
-				var valueJSON interface{}
-				err := json.Unmarshal([]byte(value), &valueJSON)
-				if err != nil {
-					return fmt.Errorf("annotation %s need a valid json value", attribute)
-				}
-
-				if strings.Contains(extensionName, "logo") {
-					parser.swagger.Info.Extensions.Add(extensionName, valueJSON)
-				} else {
-					if parser.swagger.Extensions == nil {
-						parser.swagger.Extensions = make(map[string]interface{})
-					}
-
-					parser.swagger.Extensions[attribute[1:]] = valueJSON
-				}
-			} else if strings.HasPrefix(attribute, "@tag.x-") {
-				extensionName := attribute[5:]
-
-				if len(value) == 0 {
-					return fmt.Errorf("annotation %s need a value", attribute)
-				}
-
-				if tag.Extensions == nil {
-					tag.Extensions = make(map[string]interface{})
-				}
-
-				// tag.Extensions.Add(extensionName, value) works wrong (transforms extensionName to lower case)
-				// needed to save case for ReDoc
-				// https://redocly.com/docs/api-reference-docs/specification-extensions/x-display-name/
-				tag.Extensions[extensionName] = value
 			}
 		}
-
-		previousAttribute = attribute
 	}
 
 	return nil
@@ -1402,7 +1313,7 @@ func (parser *Parser) getTypeSchema(typeName string, file *ast.File, ref bool) (
 
 	// If this is a Public variant request, look up the Public schema from definitions
 	if isPublicVariant {
-		publicSchema, exists := parser.swagger.Definitions[typeName]
+		publicSchema, exists := parser.getDefinition(typeName)
 		if !exists {
 			// Public variant doesn't exist - this is OK if the type doesn't use custom parser
 			// Fall back to base schema (Public variant would be identical anyway)
@@ -1451,10 +1362,10 @@ func (parser *Parser) getRefTypeSchema(typeSpecDef *TypeSpecDef, schema *Schema)
 
 		// Only register schemas with valid names (balanced brackets)
 		if bracketDepth == 0 {
-			parser.swagger.Definitions[schema.Name] = spec.Schema{}
-
 			if schema.Schema != nil {
-				parser.swagger.Definitions[schema.Name] = *schema.Schema
+				parser.addDefinition(schema.Name, *schema.Schema)
+			} else {
+				parser.addDefinition(schema.Name, spec.Schema{})
 			}
 
 			parser.outputSchemas[typeSpecDef] = schema
@@ -1786,7 +1697,7 @@ func (parser *Parser) ParseDefinition(typeSpecDef *TypeSpecDef) (*Schema, error)
 
 				// Only add schemas with valid names
 				if bracketDepth == 0 {
-					parser.swagger.Definitions[finalSchemaName] = *schemaSpec
+					parser.addDefinition(finalSchemaName, *schemaSpec)
 					console.Logger.Debug("Added schema '%s' to definitions", finalSchemaName)
 				} else {
 					console.Logger.Debug("Skipping malformed schema name with unbalanced brackets: %s", finalSchemaName)
@@ -1881,7 +1792,7 @@ func (parser *Parser) ParseDefinition(typeSpecDef *TypeSpecDef) (*Schema, error)
 	// update an empty schema as a result of recursion
 	s2, found := parser.outputSchemas[typeSpecDef]
 	if found {
-		parser.swagger.Definitions[s2.Name] = *definition
+		parser.addDefinition(s2.Name, *definition)
 	}
 
 	return &sch, nil
@@ -2194,7 +2105,7 @@ func (parser *Parser) getUnderlyingSchema(schema *spec.Schema) *spec.Schema {
 	if url := schema.Ref.GetURL(); url != nil {
 		if pos := strings.LastIndexByte(url.Fragment, '/'); pos >= 0 {
 			name := url.Fragment[pos+1:]
-			if schema, ok := parser.swagger.Definitions[name]; ok {
+			if schema, ok := parser.getDefinition(name); ok {
 				return &schema
 			}
 		}
@@ -2391,5 +2302,35 @@ func (parser *Parser) addTestType(typename string) {
 		PkgPath: "",
 		Name:    typename,
 		Schema:  PrimitiveSchema(OBJECT),
+	}
+}
+
+// addDefinition adds a schema definition, delegating to both swagger and schemaBuilder
+func (parser *Parser) addDefinition(name string, schema spec.Schema) {
+	// Add to swagger definitions (legacy)
+	parser.swagger.Definitions[name] = schema
+	// Add to schema builder (new system)
+	parser.schemaBuilder.AddDefinition(name, schema)
+}
+
+// getDefinition retrieves a schema definition, preferring schemaBuilder
+func (parser *Parser) getDefinition(name string) (spec.Schema, bool) {
+	// Try schema builder first (new system)
+	if schema, ok := parser.schemaBuilder.GetDefinition(name); ok {
+		return schema, true
+	}
+	// Fall back to swagger definitions (legacy)
+	schema, ok := parser.swagger.Definitions[name]
+	return schema, ok
+}
+
+// syncDefinitions syncs all definitions from schemaBuilder to swagger.Definitions
+func (parser *Parser) syncDefinitions() {
+	// Ensure swagger.Definitions has all schemas from schemaBuilder
+	for name, schema := range parser.schemaBuilder.Definitions() {
+		// Only add if not already present in swagger (avoid overwriting)
+		if _, exists := parser.swagger.Definitions[name]; !exists {
+			parser.swagger.Definitions[name] = schema
+		}
 	}
 }

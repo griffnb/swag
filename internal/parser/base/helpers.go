@@ -3,8 +3,6 @@ package base
 import (
 	"fmt"
 	"strings"
-
-	"github.com/swaggo/swag"
 )
 
 // isGeneralAPIComment checks if comments contain general API info
@@ -14,7 +12,7 @@ func isGeneralAPIComment(comments []string) bool {
 		if len(commentLine) == 0 {
 			continue
 		}
-		attribute := strings.ToLower(swag.FieldsByAnySpace(commentLine, 2)[0])
+		attribute := strings.ToLower(FieldsByAnySpace(commentLine, 2)[0])
 		switch attribute {
 		case "@summary", "@router", "@success", "@failure", "@response":
 			return false

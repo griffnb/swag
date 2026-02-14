@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/go-openapi/spec"
-	"github.com/swaggo/swag"
 )
 
 var (
@@ -72,7 +71,7 @@ func (s *Service) ParseGeneralInfo(comments []string) error {
 		if len(commentLine) == 0 {
 			continue
 		}
-		fields := swag.FieldsByAnySpace(commentLine, 2)
+		fields := FieldsByAnySpace(commentLine, 2)
 
 		attribute := fields[0]
 		var value string
@@ -87,7 +86,7 @@ func (s *Service) ParseGeneralInfo(comments []string) error {
 
 		case "@description":
 			if previousAttribute == attribute {
-				s.swagger.Info.Description = swag.AppendDescription(s.swagger.Info.Description, value)
+				s.swagger.Info.Description = AppendDescription(s.swagger.Info.Description, value)
 				continue
 			}
 			s.setSwaggerInfo(attr, value)
